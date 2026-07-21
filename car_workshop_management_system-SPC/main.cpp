@@ -1,47 +1,71 @@
 #include <iostream>
 #include <string>
+#include "global.h"
 #include "customer.h"
-#include "appointment.h"
 #include "vehicle.h"
-#include "billing_report.h"
+#include "appointment.h"
+#include "billing.h"
+#include "report.h"
 
 using namespace std;
 
-void displayMenu(string name[], string plate[], string phone[], int& totalRecords, int SIZE) {
-    int mainChoice;
-    do {
-        cout << "\n==================================================\n";
-        cout << "        CAR WORKSHOP MANAGEMENT SYSTEM (MAIN)      \n";
-        cout << "==================================================\n";
-        cout << " 1. Customer management\n";
-        cout << " 2. Appointment management\n";
-        cout << " 3. Vehicle management\n";
-        cout << " 4. Billing Management\n";
-        cout << " 5. Report & Statistics\n";
-        cout << " 0. Exit system\n";
-        cout << "==================================================\n";
-        cout << "Please enter your choice: ";
-        cin >> mainChoice;
-
-        switch (mainChoice) {
-        case 1: customerManagementMenu(name, plate, phone, totalRecords, SIZE); break;
-        case 2: appointmentManagement(name, plate, phone, totalRecords, SIZE); break;
-        case 3: updateStatus(name, plate, phone, totalRecords); break;
-        case 4: generateBill(name, plate, phone, totalRecords); break;
-        case 5: viewReports(name, plate, phone, totalRecords); break;
-        case 0: cout << "Exiting system. Goodbye!\n"; break;
-        default: cout << "[ERROR] Invalid selection!\n";
-        }
-    } while (mainChoice != 0);
-}
-
 int main() {
-    const int SIZE = 100;
-    string name[SIZE];
-    string plate[SIZE];
-    string phone[SIZE];
-    int totalRecords = 0;
+    static string customerNames[SIZE];
+    static string customerPlates[SIZE];
+    static string customerPhones[SIZE];
+    static int totalCustomerRecords = 0;
 
-    displayMenu(name, plate, phone, totalRecords, SIZE);
+    static string billIDs[SIZE];
+    static string billPlates[SIZE];
+    static double billAmounts[SIZE];
+    static int totalBillRecords = 0;
+
+    string inputChoice;
+    int choice = 0;
+
+    do {
+        cout << "\n===================================" << endl;
+        cout << "      Car Workshop System          " << endl;
+        cout << "===================================" << endl;
+        cout << "1. Customer Management" << endl;
+        cout << "2. Vehicle Management" << endl;
+        cout << "3. Appointment Management" << endl;
+        cout << "4. Billing System" << endl;
+        cout << "5. Generate Report" << endl;
+        cout << "6. Exit" << endl;
+        cout << "Enter your choice: ";
+        cin >> inputChoice;
+
+        if (inputChoice.length() == 1 && isdigit(inputChoice[0])) {
+            choice = inputChoice[0] - '0';
+        }
+        else {
+            choice = -1;
+        }
+
+        switch (choice) {
+        case 1:
+            customerManagementMenu(customerNames, customerPlates, customerPhones, totalCustomerRecords, SIZE);
+            break;
+        case 2:
+            updateStatus(customerNames, customerPlates, customerPhones, totalCustomerRecords);
+            break;
+        case 3:
+            appointmentManagement(customerNames, customerPlates, customerPhones, totalCustomerRecords, SIZE);
+            break;
+        case 4:
+            createBill(billIDs, billPlates, billAmounts, totalBillRecords);
+            break;
+        case 5:
+            generateReport(billIDs, billPlates, billAmounts, totalBillRecords);
+            break;
+        case 6:
+            cout << "Exiting system. Goodbye!" << endl;
+            break;
+        default:
+            cout << "[ERROR] Invalid choice! Please enter a number (1-6).\n" << endl;
+        }
+    } while (choice != 6);
+
     return 0;
 }

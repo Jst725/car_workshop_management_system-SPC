@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cctype>
+#include <limits>
 #include "customer.h"
 
 using namespace std;
@@ -20,7 +21,8 @@ bool isValidPlate(string str) {
     bool hasDigit = false;
     for (int i = 0; i < str.length(); i++) {
         if (isalpha(str[i])) hasLetter = true;
-        if (isdigit(str[i])) hasDigit = true;
+        else if (isdigit(str[i])) hasDigit = true;
+        else return false;
     }
     return (hasLetter && hasDigit);
 }
@@ -38,10 +40,25 @@ void addRecord(string name[], string plate[], string phone[], int& totalRecords,
     while (true) {
         cout << "Enter Phone Number (Unique ID): ";
         cin >> inputPhone;
-        if (inputPhone.length() < 10 || inputPhone.length() > 11) {
-            cout << "[ERROR] Invalid length! Phone number must be 10 or 11 digits.\n";
+
+        bool allDigits = true;
+        for (int i = 0; i < inputPhone.length(); i++) {
+            if (!isdigit(inputPhone[i])) {
+                allDigits = false;
+                break;
+            }
+        }
+
+        if (!allDigits) {
+            cout << "[ERROR] Invalid Phone Number! Digits only (0-9).\n\n";
             continue;
         }
+
+        if (inputPhone.length() < 10 || inputPhone.length() > 11) {
+            cout << "[ERROR] Invalid length! Phone number must be 10 or 11 digits.\n\n";
+            continue;
+        }
+
         isDuplicate = false;
         for (int i = 0; i < totalRecords; i++) {
             if (phone[i] == inputPhone) {
@@ -50,7 +67,7 @@ void addRecord(string name[], string plate[], string phone[], int& totalRecords,
             }
         }
         if (isDuplicate) {
-            cout << "[ERROR] This phone number is ALREADY REGISTERED!\n";
+            cout << "[ERROR] This phone number is ALREADY REGISTERED!\n\n";
             return;
         }
         else {
@@ -59,7 +76,7 @@ void addRecord(string name[], string plate[], string phone[], int& totalRecords,
     }
 
     string inputName;
-    cin.ignore();
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
     while (true) {
         cout << "Enter Customer Name (Letters Only): ";
         getline(cin, inputName);
@@ -81,7 +98,7 @@ void addRecord(string name[], string plate[], string phone[], int& totalRecords,
             break;
         }
         else {
-            cout << "[ERROR] Invalid Plate! Plate cannot be numbers only or letters only.\n\n";
+            cout << "[ERROR] Invalid Plate! Plate cannot be numbers only, letters only, or contain special symbols.\n\n";
         }
     }
 
@@ -105,19 +122,22 @@ void viewRecords(string name[], string plate[], string phone[], int& totalRecord
     }
     cout << "---------------------------------------------------------------------\n";
 
-    int subChoice;
+    string inputSubChoice;
+    int subChoice = 0;
     cout << "\n[ View Namelist Menu ]\n";
     cout << "1. Delete Customer Record\n";
     cout << "2. Back to Customer Menu\n";
     cout << "Enter your choice: ";
-    cin >> subChoice;
+    cin >> inputSubChoice;
 
-    if (subChoice == 1) {
+    if (inputSubChoice == "1") {
         int indexToDelete;
         cout << "Enter the Number (No.) to delete: ";
         cin >> indexToDelete;
 
-        if (indexToDelete < 1 || indexToDelete > totalRecords) {
+        if (cin.fail() || indexToDelete < 1 || indexToDelete > totalRecords) {
+            cin.clear();
+            cin.ignore(10000, '\n');
             cout << "[ERROR] Invalid record number.\n";
             return;
         }
@@ -166,9 +186,19 @@ void searchRecord(string name[], string plate[], string phone[], int totalRecord
         cin >> confirm;
 
         if (confirm == 'Y' || confirm == 'y') {
-            cout << "Enter NEW Vehicle Plate Number: ";
-            cin >> plate[foundIndex];
-            cout << "[SUCCESS] Vehicle plate updated/linked to this customer.\n";
+            string inputPlate;
+            while (true) {
+                cout << "Enter NEW Vehicle Plate Number: ";
+                cin >> inputPlate;
+                if (isValidPlate(inputPlate)) {
+                    plate[foundIndex] = inputPlate;
+                    cout << "[SUCCESS] Vehicle plate updated/linked to this customer.\n";
+                    break;
+                }
+                else {
+                    cout << "[ERROR] Invalid Plate! Must mix letters and numbers.\n";
+                }
+            }
         }
         else {
             cout << "Operation cancelled.\n";
@@ -177,7 +207,8 @@ void searchRecord(string name[], string plate[], string phone[], int totalRecord
 }
 
 void customerManagementMenu(string name[], string plate[], string phone[], int& totalRecords, int SIZE) {
-    int choice;
+    string inputChoice;
+    int choice = 0;
     do {
         cout << "\n==================================================\n";
         cout << "         CUSTOMER MANAGEMENT SYSTEM\n";
@@ -188,7 +219,14 @@ void customerManagementMenu(string name[], string plate[], string phone[], int& 
         cout << " 4. Back to Main Menu\n";
         cout << "==================================================\n";
         cout << "Please enter your choice (1-4): ";
-        cin >> choice;
+        cin >> inputChoice;
+
+        if (inputChoice.length() == 1 && isdigit(inputChoice[0])) {
+            choice = inputChoice[0] - '0';
+        }
+        else {
+            choice = -1;
+        }
 
         switch (choice) {
         case 1: viewRecords(name, plate, phone, totalRecords); break;

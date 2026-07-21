@@ -140,16 +140,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="appointment.h" />
-    <ClInclude Include="billing_report.h" />
+    <ClInclude Include="billing.h" />
     <ClInclude Include="customer.h" />
     <ClInclude Include="global.h" />
     <ClInclude Include="vehicle.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="appointment.cpp" />
-    <ClCompile Include="billing_report.cpp" />
+    <ClCompile Include="billing.cpp" />
     <ClCompile Include="customer.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="report.cpp" />
+    <ClCompile Include="report.h" />
     <ClCompile Include="vehicle.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

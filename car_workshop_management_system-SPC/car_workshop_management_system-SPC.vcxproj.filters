@@ -27,7 +27,7 @@
     <ClInclude Include="vehicle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="billing_report.h">
+    <ClInclude Include="billing.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -44,7 +44,13 @@
     <ClCompile Include="vehicle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="billing_report.cpp">
+    <ClCompile Include="billing.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="report.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="report.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

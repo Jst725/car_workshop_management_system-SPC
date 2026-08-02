@@ -21,13 +21,16 @@
     <ClInclude Include="customer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="global.h">
+    <ClInclude Include="structures.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="vehicle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="billing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="file storage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -51,6 +54,9 @@
       <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="report.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="file_storage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

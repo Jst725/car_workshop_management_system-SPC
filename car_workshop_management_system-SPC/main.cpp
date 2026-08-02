@@ -20,6 +20,9 @@ int main() {
     static double billAmounts[SIZE];
     static int totalBillRecords = 0;
 
+    // ADDED: Automatically load customer data from txt file on program startup
+    loadCustomers(customerNames, customerPlates, customerPhones, totalCustomerRecords);
+
     string inputChoice;
     int choice = 0;
 

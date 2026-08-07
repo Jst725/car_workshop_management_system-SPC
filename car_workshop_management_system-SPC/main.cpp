@@ -13,16 +13,8 @@ int main() {
     std::vector<Appointment> appointments;
     std::vector<Invoice> invoices;
 
-    static string billIDs[SIZE];
-    static string billPlates[SIZE];
-    static double billAmounts[SIZE];
-    static int totalBillRecords = 0;
-
-    // ADDED: Automatically load customer data from txt file on program startup
-    loadCustomers(customerNames, customerPlates, customerPhones, totalCustomerRecords);
-
-    string inputChoice;
-    int choice = 0;
+    // Load saved customer data on startup
+    loadCustomersFromFile(customers);
 
     int choice = -1;
     do {
@@ -66,7 +58,6 @@ int main() {
             std::cout << "Are you sure you want to exit? (Y/N): ";
             std::cin >> confirm;
             if (confirm == 'Y' || confirm == 'y') {
-                // Save data back to files before shutting down
                 saveAllData(customers, appointments, invoices);
                 std::cout << "Exiting system. Goodbye!\n";
             }

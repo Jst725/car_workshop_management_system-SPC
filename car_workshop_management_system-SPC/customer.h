@@ -1,13 +1,28 @@
-#pragma once
+#ifndef CUSTOMER_H
+#define CUSTOMER_H
+
+#include "structures.h"
+#include <vector>
 #include <string>
-using namespace std;
 
-// File Handling Functions
-void saveCustomers(const string name[], const string plate[], const string phone[], int totalRecords);
-void loadCustomers(string name[], string plate[], string phone[], int& totalRecords);
+void customerMenu(std::vector<Customer>& customers,
+    std::vector<Appointment>& appointments,
+    std::vector<Invoice>& invoices);
 
-// Customer Management Functions
-void addRecord(string name[], string plate[], string phone[], int& totalRecords, int SIZE);
-void viewRecords(string name[], string plate[], string phone[], int& totalRecords);
-void searchRecord(string name[], string plate[], string phone[], int totalRecords);
-void customerManagementMenu(string name[], string plate[], string phone[], int& totalRecords, int SIZE);
+// Core customer operations
+void registerCustomer(std::vector<Customer>& customers);
+void addVehicleToCustomer(std::vector<Customer>& customers);
+void viewCustomers(const std::vector<Customer>& customers);
+void searchCustomer(const std::vector<Customer>& customers);
+void deleteCustomer(std::vector<Customer>& customers,
+    const std::vector<Appointment>& appointments,
+    const std::vector<Invoice>& invoices);
+
+// Validation helpers
+bool isValidName(const std::string& str);
+bool isValidPhone(const std::string& str);
+bool isValidPlate(const std::string& str);
+bool isPlateTaken(const std::vector<Customer>& customers, const std::string& plate);
+bool isValidVehicleText(const std::string& str);
+
+#endif

@@ -142,7 +142,7 @@
     <ClInclude Include="appointment.h" />
     <ClInclude Include="billing.h" />
     <ClInclude Include="customer.h" />
-    <ClInclude Include="file storage.h" />
+    <ClInclude Include="file_storage.h" />
     <ClInclude Include="structures.h" />
     <ClInclude Include="vehicle.h" />
   </ItemGroup>

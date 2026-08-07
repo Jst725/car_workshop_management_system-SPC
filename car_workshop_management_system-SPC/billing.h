@@ -1,7 +1,14 @@
-#pragma once
+#ifndef BILLING_H
+#define BILLING_H
 
-#include <string>
-#include "global.h"
+#include "structures.h"
+#include <vector>
 
-void createBill(std::string billID[], std::string billPlate[], double amount[], int& totalBills);
-void displayBills(const std::string billID[], const std::string billPlate[], const double amount[], int totalBills);
+void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customers);
+
+void generateInvoice(std::vector<Invoice>& invoices, const std::vector<Customer>& customers);
+void processPayment(std::vector<Invoice>& invoices, const std::vector<Customer>& customers);
+void printReceipt(const Invoice& inv);
+void paymentHistory(const std::vector<Invoice>& invoices);
+
+#endif

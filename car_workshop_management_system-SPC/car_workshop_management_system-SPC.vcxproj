@@ -142,13 +142,15 @@
     <ClInclude Include="appointment.h" />
     <ClInclude Include="billing.h" />
     <ClInclude Include="customer.h" />
-    <ClInclude Include="global.h" />
+    <ClInclude Include="file storage.h" />
+    <ClInclude Include="structures.h" />
     <ClInclude Include="vehicle.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="appointment.cpp" />
     <ClCompile Include="billing.cpp" />
     <ClCompile Include="customer.cpp" />
+    <ClCompile Include="file_storage.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="report.cpp" />
     <ClCompile Include="report.h" />

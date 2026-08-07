@@ -13,8 +13,16 @@ int main() {
     std::vector<Appointment> appointments;
     std::vector<Invoice> invoices;
 
-    // Load existing records from plain text files on boot
-    loadAllData(customers, appointments, invoices);
+    static string billIDs[SIZE];
+    static string billPlates[SIZE];
+    static double billAmounts[SIZE];
+    static int totalBillRecords = 0;
+
+    // ADDED: Automatically load customer data from txt file on program startup
+    loadCustomers(customerNames, customerPlates, customerPhones, totalCustomerRecords);
+
+    string inputChoice;
+    int choice = 0;
 
     int choice = -1;
     do {

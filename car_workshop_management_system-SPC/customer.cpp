@@ -2,9 +2,60 @@
 #include <string>
 #include <cctype>
 #include <limits>
+#include <fstream> // ADDED: Needed for file processing (.txt)
 #include "customer.h"
 
 using namespace std;
+
+// ===================================================
+// FILE PROCESSING FUNCTIONS (Data Persistence)
+// ===================================================
+
+// Save customer data to "customers.txt"
+void saveCustomers(const string name[], const string plate[], const string phone[], int totalRecords) {
+    ofstream outFile("customers.txt");
+    if (!outFile) {
+        cout << "[ERROR] Unable to open customers.txt for writing!\n";
+        return;
+    }
+
+    // Save current total record count
+    outFile << totalRecords << "\n";
+
+    // Save array elements line by line
+    for (int i = 0; i < totalRecords; i++) {
+        outFile << phone[i] << "\n";
+        outFile << name[i] << "\n";
+        outFile << plate[i] << "\n";
+    }
+
+    outFile.close();
+}
+
+// Load customer data from "customers.txt" on program startup
+void loadCustomers(string name[], string plate[], string phone[], int& totalRecords) {
+    ifstream inFile("customers.txt");
+    if (!inFile) {
+        // File does not exist yet (First time running system)
+        return;
+    }
+
+    inFile >> totalRecords;
+    inFile.ignore(numeric_limits<streamsize>::max(), '\n'); // Clear leftover newline
+
+    for (int i = 0; i < totalRecords; i++) {
+        getline(inFile, phone[i]);
+        getline(inFile, name[i]);
+        getline(inFile, plate[i]);
+    }
+
+    inFile.close();
+    cout << "[SYSTEM] Loaded " << totalRecords << " customer record(s) from customers.txt\n";
+}
+
+// ===================================================
+// VALIDATION HELPERS
+// ===================================================
 
 bool isValidName(string str) {
     if (str.empty()) return false;
@@ -26,6 +77,10 @@ bool isValidPlate(string str) {
     }
     return (hasLetter && hasDigit);
 }
+
+// ===================================================
+// CUSTOMER MODULE FUNCTIONS
+// ===================================================
 
 void addRecord(string name[], string plate[], string phone[], int& totalRecords, int SIZE) {
     cout << "\n>>> REGISTER NEW CUSTOMER <<<\n";
@@ -104,8 +159,12 @@ void addRecord(string name[], string plate[], string phone[], int& totalRecords,
 
     phone[totalRecords] = inputPhone;
     totalRecords++;
+
+    // ADDED: Auto-save data to file
+    saveCustomers(name, plate, phone, totalRecords);
+
     cout << "--------------------------------------------------\n";
-    cout << "[SUCCESS] Customer & Vehicle Registered Successfully!\n";
+    cout << "[SUCCESS] Customer & Vehicle Registered and Saved to File!\n";
 }
 
 void viewRecords(string name[], string plate[], string phone[], int& totalRecords) {
@@ -149,7 +208,11 @@ void viewRecords(string name[], string plate[], string phone[], int& totalRecord
             plate[i] = plate[i + 1];
         }
         totalRecords--;
-        cout << "[SUCCESS] Record deleted successfully!\n";
+
+        // ADDED: Auto-save updated array to file after deleting
+        saveCustomers(name, plate, phone, totalRecords);
+
+        cout << "[SUCCESS] Record deleted and file updated!\n";
     }
 }
 
@@ -192,6 +255,10 @@ void searchRecord(string name[], string plate[], string phone[], int totalRecord
                 cin >> inputPlate;
                 if (isValidPlate(inputPlate)) {
                     plate[foundIndex] = inputPlate;
+
+                    // ADDED: Auto-save updated plate to file
+                    saveCustomers(name, plate, phone, totalRecords);
+
                     cout << "[SUCCESS] Vehicle plate updated/linked to this customer.\n";
                     break;
                 }

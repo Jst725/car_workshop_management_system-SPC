@@ -512,18 +512,29 @@ void deleteCustomer(std::vector<Customer>& customers) {
 
     for (auto it = customers.begin(); it != customers.end(); ++it) {
         if (it->id == custId) {
+            std::cout << "\n========================================\n";
+            std::cout << "         CONFIRM CUSTOMER DELETION        \n";
+            std::cout << "========================================\n";
+            std::cout << "Customer ID    : " << it->id << "\n";
+            std::cout << "Name           : " << it->name << "\n";
+            std::cout << "Registered Cars: " << it->vehicles.size() << "\n";
+
             if (!it->vehicles.empty()) {
-                std::cout << "ERROR: Cannot delete customer! They still have " << it->vehicles.size()
-                    << " registered vehicle(s) in the system.\n";
-                return;
+                for (size_t i = 0; i < it->vehicles.size(); ++i) {
+                    std::cout << "  " << (i + 1) << ". " << it->vehicles[i].licensePlate
+                        << " (" << it->vehicles[i].brand << " " << it->vehicles[i].model << ")\n";
+                }
+                std::cout << "----------------------------------------\n";
+                std::cout << "WARNING: Deleting this customer will automatically delete ALL registered vehicles above!\n";
             }
+            std::cout << "========================================\n";
 
             char confirm = 'N';
             std::cout << "Are you sure you want to delete customer [" << it->name << " - " << it->id << "]? (Y/N): ";
             std::cin >> confirm;
 
             if (confirm == 'Y' || confirm == 'y') {
-                std::cout << "Customer " << it->name << " (" << it->id << ") deleted successfully.\n";
+                std::cout << "Customer " << it->name << " (" << it->id << ") and all associated vehicles deleted successfully.\n";
                 customers.erase(it);
             }
             else {

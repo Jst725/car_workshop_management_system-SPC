@@ -12,7 +12,6 @@ void viewServiceBreakdown(const std::vector<Customer>& customers, const std::vec
 double calculateServicePrice(const std::vector<double>& parts, double labor);
 void displayWorkshopVehicle(const std::vector<Customer>& customers, const std::vector<Appointment>& appointments);
 void checkServiceReminders(const std::vector<Customer>& customers, const std::vector<Appointment>& appointments);
-void exportJobSheet(const Customer& customer, const Vehicle& vehicle);
 void resetVehicleServiceData(Vehicle& vehicle);
 
 #endif

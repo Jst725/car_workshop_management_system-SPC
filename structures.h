@@ -7,15 +7,25 @@
 // Definition for individual parts used in service
 struct PartItem {
     std::string partId;
-    std::string name;       
+    std::string name;
     double price;
     int stockQuantity;
 };
 
+// Definition for service logs or active task descriptions
 struct ServiceLog {
     std::string date;
     std::string description;
     double cost;
+};
+
+// NEW: Itemized detail structure to store specific service lines and parts on the invoice
+struct InvoiceItem {
+    std::string description; // e.g., Part name or labor task
+    std::string itemType;    // "Part" or "Labor"
+    int quantity = 1;
+    double unitPrice = 0.0;
+    double totalPrice = 0.0;
 };
 
 struct Vehicle {
@@ -25,6 +35,11 @@ struct Vehicle {
     std::string status;              // e.g., "Ready for Pickup"
     std::string assignedTechnician;
     std::string lastServiceDate;
+
+    // Added back to match billing.cpp requirements
+    std::string lastPartsUsed;
+    std::string lastServiceDescription;
+
     double partsCost;
     double laborCost;
     double currentServiceCost;
@@ -56,6 +71,9 @@ struct Invoice {
     std::string customerId;
     std::string licensePlate;
     std::string date;
+
+    std::vector<InvoiceItem> items; // <--- NEW: Itemized service detail list
+
     double partsCost;
     double laborCost;
     double discountAmount;

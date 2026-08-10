@@ -10,22 +10,34 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <vector>
 
 static void manageAppointmentFromList(std::vector<Appointment*>& foundAppointments,
     std::vector<Appointment>& allAppointments);
 static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointment>& allAppointments);
 static void cancelSpecificAppointment(Appointment* app);
 
-// Define structures for hierarchical service catalog options
-struct SubServiceOption {
-    std::string subName;
+// Define hierarchical structures with fixed service fees
+struct SubOption {
+    std::string name;
     std::string description;
-    double cost;
+    double fee; // Fixed Service Fee
 };
 
-struct MainServiceCategory {
+struct OptionCategory {
     std::string categoryName;
-    std::vector<SubServiceOption> subServices;
+    std::vector<SubOption> subOptions;
+};
+
+struct MainBookingType {
+    std::string typeName;
+    std::vector<OptionCategory> categories;
+};
+
+// Track selected item with its associated fee
+struct SelectedItem {
+    std::string fullDescription;
+    double fee;
 };
 
 // Static tracker for session maximum ID
@@ -110,17 +122,17 @@ static bool isValidDate(const std::string& date) {
 }
 
 // Verification Helper: Validates HH:MM format (24-hour clock)
-static bool isValidTime(const std::string& time) {
-    if (time.length() != 5) return false;
-    if (time[2] != ':') return false;
+static bool isValidTime(const std::string& timeStr) {
+    if (timeStr.length() != 5) return false;
+    if (timeStr[2] != ':') return false;
 
     for (int i = 0; i < 5; ++i) {
         if (i == 2) continue;
-        if (!std::isdigit(static_cast<unsigned char>(time[i]))) return false;
+        if (!std::isdigit(static_cast<unsigned char>(timeStr[i]))) return false;
     }
 
-    int hour = std::stoi(time.substr(0, 2));
-    int minute = std::stoi(time.substr(3, 2));
+    int hour = std::stoi(timeStr.substr(0, 2));
+    int minute = std::stoi(timeStr.substr(3, 2));
 
     return (hour >= 0 && hour <= 23) && (minute >= 0 && minute <= 59);
 }
@@ -304,7 +316,7 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
             std::getline(std::cin, newV.model);
 
             newV.lastServiceDate = "N/A";
-            newV.status = "Awaiting Parts";
+            newV.status = "In Service Queue";
             newV.assignedTechnician = "Unassigned";
             newV.partsCost = 0.0;
             newV.laborCost = 0.0;
@@ -324,11 +336,15 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
 
     app.licensePlate = toUpper(selectedPlate);
 
+    std::string today = getTodayDate();
     while (true) {
-        std::cout << "Enter Service Date (YYYY-MM-DD): ";
+        std::cout << "Enter Service Date (YYYY-MM-DD, Today or Future): ";
         std::cin >> app.date;
         if (!isValidDate(app.date)) {
             std::cout << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n";
+        }
+        else if (app.date < today) {
+            std::cout << "ERROR: Appointment date cannot be in the past! Current date is: " << today << "\n";
         }
         else {
             break;
@@ -353,45 +369,92 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         }
     }
 
-    // --- HIERARCHICAL SERVICE CATALOG SELECTION ---
-    std::vector<MainServiceCategory> catalog = {
+    // --- TWO-TIERED BOOKING CATALOG WITH FIXED SERVICE FEES ---
+    std::vector<MainBookingType> mainTypes = {
         {
-            "Interim (Minor) Service",
+            "Car Problem / Repair Request",
             {
-                {"Oil & Filter Change", "Drain old engine oil, replace oil filter, and refill fresh oil.", 90.00},
-                {"Fluid Level Top-Up", "Check and top up brake, coolant, and windshield washer fluids.", 50.00},
-                {"Basic Safety Inspection", "Quick check of lights, wipers, tires, and basic components.", 60.00}
+                {
+                    "Engine & Driveability Issues",
+                    {
+                        {"Engine Stalling / Rough Idle", "Vehicle stalls, struggles to start, or idling is unstable.", 120.00},
+                        {"Check Engine Light Diagnostic", "OBD scanner diagnosis & troubleshooting.", 80.00},
+                        {"Engine Overheating Repair", "Coolant leak check & thermostat diagnostic.", 150.00}
+                    }
+                },
+                {
+                    "Brake, Steering & Suspension Issues",
+                    {
+                        {"Brake Noise / Low Power Diagnostic", "Inspection of brake pads, rotors, and fluid.", 60.00},
+                        {"Steering Pull & Suspension Check", "Wheel alignment & suspension arm inspection.", 90.00}
+                    }
+                },
+                {
+                    "Electrical & Air Conditioning Issues",
+                    {
+                        {"Battery / Alternator Test & Repair", "Battery health check & alternator output test.", 50.00},
+                        {"Aircon Pressure & Cooling Repair", "AC gas pressure test & leak check.", 100.00},
+                        {"Electrical Accessories Fault Check", "Wiring, fuses, and window motor repair.", 70.00}
+                    }
+                }
             }
         },
         {
-            "Full (Standard) Service",
+            "Scheduled Maintenance / Servicing",
             {
-                {"Comprehensive Maintenance", "Routine periodic inspection, fluid checks, and general vehicle upkeep.", 180.00},
-                {"Brake System Check & Service", "Inspection, rotor checks, and brake pad adjustments/cleaning.", 150.00},
-                {"Wheel Alignment & Balancing", "Adjusting wheel angles and balancing tires for smooth driving control.", 130.00}
-            }
-        },
-        {
-            "Major Service",
-            {
-                {"Engine Diagnostics & Overhaul", "Advanced computer scanning, troubleshooting engine codes, and major repairs.", 400.00},
-                {"Timing Belt & Spark Plug Replacement", "Full replacement of timing components and worn out ignition spark plugs.", 350.00},
-                {"Complete Transmission & Suspension", "Deep inspection and tuning of transmission systems and suspension struts.", 450.00}
+                {
+                    "Interim Maintenance",
+                    {
+                        {"Basic Engine Oil & Filter Change", "Engine oil drain/fill and new oil filter replacement.", 130.00},
+                        {"Safety Inspection & Fluid Top-Up", "Check of brakes, lights, coolant, wiper fluid.", 50.00}
+                    }
+                },
+                {
+                    "Full Periodic Service",
+                    {
+                        {"Standard Comprehensive Service", "Complete system checks, spark plug check, air filter clean.", 250.00},
+                        {"Brake System Service & Flush", "Brake pad cleaning, slider lube, brake fluid flush.", 140.00}
+                    }
+                },
+                {
+                    "Major Overhaul Maintenance",
+                    {
+                        {"Major Service & Timing Belt Package", "Comprehensive service with timing belt/chain replacement.", 650.00},
+                        {"Transmission & Gearbox Fluid Service", "Transmission fluid flush & filter change.", 220.00}
+                    }
+                }
             }
         }
     };
 
-    std::string chosenServiceSelection = "";
-    while (true) {
+    // --- MULTI-SELECTION LOOP FOR PROBLEMS & SERVICES WITH COST CALCULATION ---
+    std::vector<SelectedItem> selectedItems;
+    double totalServiceFee = 0.0;
+    bool doneSelecting = false;
+
+    while (!doneSelecting) {
         std::cout << "\n========================================================================\n";
-        std::cout << "                     SELECT SERVICE CATEGORY                            \n";
+        std::cout << "                  SELECT REASON(S) FOR APPOINTMENT                      \n";
         std::cout << "========================================================================\n";
-        for (size_t i = 0; i < catalog.size(); ++i) {
-            std::cout << (i + 1) << ". " << catalog[i].categoryName << "\n";
+
+        if (!selectedItems.empty()) {
+            std::cout << "CURRENTLY SELECTED (" << selectedItems.size() << " item(s)):\n";
+            for (size_t i = 0; i < selectedItems.size(); ++i) {
+                std::cout << "  " << (i + 1) << ". " << selectedItems[i].fullDescription
+                    << " [Fee: $" << std::fixed << std::setprecision(2) << selectedItems[i].fee << "]\n";
+            }
+            std::cout << "  TOTAL ESTIMATED SERVICE FEE: $" << std::fixed << std::setprecision(2) << totalServiceFee << "\n";
+            std::cout << "------------------------------------------------------------------------\n";
+        }
+
+        std::cout << "1. Add a Car Problem / Repair Request\n";
+        std::cout << "2. Add Scheduled Maintenance / Servicing\n";
+        if (!selectedItems.empty()) {
+            std::cout << "3. [DONE] Finish Selection and Proceed ($" << std::fixed << std::setprecision(2) << totalServiceFee << " total)\n";
         }
         std::cout << "0. Cancel Booking\n";
         std::cout << "------------------------------------------------------------------------\n";
-        std::cout << "Select Main Category (1 - " << catalog.size() << "): ";
+        std::cout << "Select Option: ";
 
         int mainChoice;
         if (!(std::cin >> mainChoice)) {
@@ -406,71 +469,145 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
             return;
         }
 
-        if (mainChoice >= 1 && mainChoice <= static_cast<int>(catalog.size())) {
-            const auto& selectedCategory = catalog[mainChoice - 1];
+        if (mainChoice == 3 && !selectedItems.empty()) {
+            doneSelecting = true;
+            break;
+        }
+
+        if (mainChoice == 1 || mainChoice == 2) {
+            const auto& selectedMain = mainTypes[mainChoice - 1];
 
             while (true) {
-                std::cout << "\n------------------------------------------------------------------------\n";
-                std::cout << "    SUB-SERVICES FOR: " << selectedCategory.categoryName << "\n";
-                std::cout << "------------------------------------------------------------------------\n";
-                for (size_t j = 0; j < selectedCategory.subServices.size(); ++j) {
-                    std::cout << (j + 1) << ". " << selectedCategory.subServices[j].subName << "\n"
-                        << "    Desc: " << selectedCategory.subServices[j].description << "\n"
-                        << "    Est. Cost: ~$" << std::fixed << std::setprecision(2) << selectedCategory.subServices[j].cost << "\n";
-                    std::cout << "------------------------------------------------------------------------\n";
+                std::cout << "\n========================================================================\n";
+                std::cout << "    CATEGORIES FOR: " << selectedMain.typeName << "\n";
+                std::cout << "========================================================================\n";
+                for (size_t c = 0; c < selectedMain.categories.size(); ++c) {
+                    std::cout << (c + 1) << ". " << selectedMain.categories[c].categoryName << "\n";
                 }
-                std::cout << "0. Back to Main Categories\n";
-                std::cout << "Select Sub-Service Option: ";
+                std::cout << "0. Back to Main Selection\n";
+                std::cout << "------------------------------------------------------------------------\n";
+                std::cout << "Select Category (1 - " << selectedMain.categories.size() << "): ";
 
-                int subChoice;
-                if (!(std::cin >> subChoice)) {
+                int catChoice;
+                if (!(std::cin >> catChoice)) {
                     std::cout << "Invalid input! Please enter a number.\n";
                     std::cin.clear();
                     std::cin.ignore(1000, '\n');
                     continue;
                 }
 
-                if (subChoice == 0) {
-                    break; // Go back to main categories loop
-                }
+                if (catChoice == 0) break; // Back to main selection loop
 
-                if (subChoice >= 1 && subChoice <= static_cast<int>(selectedCategory.subServices.size())) {
-                    const auto& sub = selectedCategory.subServices[subChoice - 1];
-                    chosenServiceSelection = selectedCategory.categoryName + " -> " + sub.subName;
-                    break;
+                if (catChoice >= 1 && catChoice <= static_cast<int>(selectedMain.categories.size())) {
+                    const auto& selectedCat = selectedMain.categories[catChoice - 1];
+
+                    while (true) {
+                        std::cout << "\n------------------------------------------------------------------------\n";
+                        std::cout << "    SPECIFIC OPTIONS FOR: " << selectedCat.categoryName << "\n";
+                        std::cout << "------------------------------------------------------------------------\n";
+                        for (size_t s = 0; s < selectedCat.subOptions.size(); ++s) {
+                            std::cout << (s + 1) << ". " << selectedCat.subOptions[s].name
+                                << " [Fee: $" << std::fixed << std::setprecision(2) << selectedCat.subOptions[s].fee << "]\n"
+                                << "    Desc: " << selectedCat.subOptions[s].description << "\n";
+                            std::cout << "------------------------------------------------------------------------\n";
+                        }
+                        std::cout << "0. Back to Categories\n";
+                        std::cout << "Select Specific Issue / Service to ADD: ";
+
+                        int subChoice;
+                        if (!(std::cin >> subChoice)) {
+                            std::cout << "Invalid input! Please enter a number.\n";
+                            std::cin.clear();
+                            std::cin.ignore(1000, '\n');
+                            continue;
+                        }
+
+                        if (subChoice == 0) break; // Back to category selection
+
+                        if (subChoice >= 1 && subChoice <= static_cast<int>(selectedCat.subOptions.size())) {
+                            const auto& sub = selectedCat.subOptions[subChoice - 1];
+                            std::string itemStr = "[" + selectedMain.typeName + "] " + selectedCat.categoryName + " -> " + sub.name;
+
+                            // Duplicate check
+                            bool exists = false;
+                            for (const auto& item : selectedItems) {
+                                if (item.fullDescription == itemStr) {
+                                    exists = true;
+                                    break;
+                                }
+                            }
+
+                            if (exists) {
+                                std::cout << "\n>>> NOTE: This item is already in your selection list! <<<\n";
+                            }
+                            else {
+                                selectedItems.push_back({ itemStr, sub.fee });
+                                totalServiceFee += sub.fee;
+                                std::cout << "\n>>> ADDED SUCCESSFULLY: " << itemStr << " ($" << std::fixed << std::setprecision(2) << sub.fee << ") <<<\n";
+                            }
+                            break; // Return to category level after adding item
+                        }
+                        else {
+                            std::cout << "Invalid selection! Try again.\n";
+                        }
+                    }
                 }
                 else {
-                    std::cout << "Invalid sub-service selection! Try again.\n";
+                    std::cout << "Invalid category selection! Try again.\n";
                 }
-            }
-
-            if (!chosenServiceSelection.empty()) {
-                break; // Exit main loop once sub-service is chosen
             }
         }
         else {
-            std::cout << "Invalid category selection! Please choose from the list.\n";
+            std::cout << "Invalid selection! Please choose a valid option.\n";
         }
     }
+
+    // --- CONCATENATE ALL SELECTED SERVICES INTO ONE STRING WITH COST DETAILS ---
+    std::string combinedServices = "";
+    for (size_t i = 0; i < selectedItems.size(); ++i) {
+        std::stringstream feeStream;
+        feeStream << std::fixed << std::setprecision(2) << selectedItems[i].fee;
+
+        combinedServices += "(" + std::to_string(i + 1) + ") " + selectedItems[i].fullDescription + " [$" + feeStream.str() + "]";
+        if (i < selectedItems.size() - 1) {
+            combinedServices += " | ";
+        }
+    }
+
+    // Append total fixed fee summary
+    std::stringstream totalStream;
+    totalStream << std::fixed << std::setprecision(2) << totalServiceFee;
+    combinedServices += " {Total Service Fee: $" + totalStream.str() + "}";
 
     // --- OPTIONAL REMARK / NOTE INPUT ---
     std::cin.ignore(1000, '\n');
     std::string remarkInput = "";
-    std::cout << "Enter Remark / Special Instructions (Press Enter to skip): ";
+    std::cout << "\nEnter Additional Remarks / Symptoms Description (Press Enter to skip): ";
     std::getline(std::cin, remarkInput);
 
     if (!remarkInput.empty()) {
-        app.serviceType = chosenServiceSelection + " [Remark: " + remarkInput + "]";
+        app.serviceType = combinedServices + " [Remark: " + remarkInput + "]";
     }
     else {
-        app.serviceType = chosenServiceSelection;
+        app.serviceType = combinedServices;
     }
+
+    // --- PASS COST AND STATUS DATA TO VEHICLE PART & SAVE CUSTOMER DATA ---
+    for (auto& v : targetCustomer->vehicles) {
+        if (v.licensePlate == app.licensePlate) {
+            v.laborCost += totalServiceFee;          // Assign service fees to labor/service cost
+            v.currentServiceCost += totalServiceFee; // Update cumulative current service bill
+            v.status = "In Service Queue";          // Update vehicle workflow status
+            break;
+        }
+    }
+    saveCustomersToFile(customers); // Sync updated vehicle charges to storage file for Billing module
 
     app.appointmentId = generateNextAppointmentId(appointments);
     app.isActive = true;
     appointments.push_back(app);
 
-    std::cout << "\nBooking successful!\n";
+    std::cout << "\nBooking successful! Vehicle service cost updated and passed to Billing.\n";
     generateBookingSlip(app);
 }
 
@@ -482,7 +619,7 @@ void generateBookingSlip(const Appointment& app) {
     std::cout << "Customer ID   : " << app.customerId << "\n";
     std::cout << "Vehicle Plate : " << app.licensePlate << "\n";
     std::cout << "Schedule      : " << app.date << " @ " << app.time << "\n";
-    std::cout << "Service Type  : " << app.serviceType << "\n";
+    std::cout << "Services/Fees : " << app.serviceType << "\n";
     std::cout << "Status        : " << (app.isActive ? "CONFIRMED" : "CANCELLED") << "\n";
     std::cout << "----------------------------------------\n";
 }
@@ -677,13 +814,17 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
     }
 
     std::string newDate, newTime;
+    std::string today = getTodayDate();
     std::cout << "\nCurrent Schedule: " << app->date << " @ " << app->time << "\n";
 
     while (true) {
-        std::cout << "Enter New Date (YYYY-MM-DD): ";
+        std::cout << "Enter New Date (YYYY-MM-DD, Today or Future): ";
         std::cin >> newDate;
         if (!isValidDate(newDate)) {
             std::cout << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n";
+        }
+        else if (newDate < today) {
+            std::cout << "ERROR: Rescheduled date cannot be in the past! Current date is: " << today << "\n";
         }
         else {
             break;
@@ -839,7 +980,7 @@ void cancelAppointment(std::vector<Appointment>& appointments) {
 
 void filterAppointmentsByServiceType(const std::vector<Appointment>& appointments) {
     std::string keyword;
-    std::cout << "\nEnter service category or keyword to filter (e.g. Interim, Full, Major, Oil): ";
+    std::cout << "\nEnter service category or keyword to filter (e.g. Repair, Maintenance, Engine, Brake, Oil): ";
     std::cin.ignore(1000, '\n');
     std::getline(std::cin, keyword);
     keyword = toUpper(keyword);

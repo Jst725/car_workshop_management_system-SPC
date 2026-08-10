@@ -5,7 +5,6 @@
 #include <string>
 #include <ctime>
 #include <sstream>
-#include <fstream>
 #include <algorithm>
 #include <cctype>
 
@@ -43,7 +42,7 @@ static std::string getTodayDate() {
     return ss.str();
 }
 
-// Forward declaration of new features
+// Forward declaration of internal menu features
 void searchVehicleHistory(const std::vector<Customer>& customers);
 void updateAllVehicleStatuses(std::vector<Customer>& customers, const std::vector<Appointment>& appointments);
 
@@ -151,13 +150,6 @@ void updateVehicleStatus(std::vector<Customer>& customers, const std::vector<App
                 std::getline(std::cin, v.assignedTechnician);
 
                 std::cout << "Status successfully updated for " << v.licensePlate << "!\n";
-
-                char exportChoice;
-                std::cout << "Generate printable Workshop Job Sheet file? (Y/N): ";
-                std::cin >> exportChoice;
-                if (std::toupper(static_cast<unsigned char>(exportChoice)) == 'Y') {
-                    exportJobSheet(c, v);
-                }
                 return;
             }
         }
@@ -305,17 +297,15 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                         std::cout << "Invalid choice selection!\n";
                     }
 
-                    // Recalculate Totals
+                    // Recalculate Totals & Active Service Logs
                     v.partsCost = 0.0;
                     v.activeServiceLogs.clear();
                     for (const auto& item : v.parts) {
                         v.partsCost += item.price;
-                        std::stringstream ss;
-                        ss << item.name << " ($" << std::fixed << std::setprecision(2) << item.price << ")";
                         ServiceLog logEntry;
-                        logEntry.date = v.lastServiceDate;
-                        logEntry.description = "Your description here";
-                        logEntry.cost = 0.0;
+                        logEntry.date = getTodayDate();
+                        logEntry.description = item.name;
+                        logEntry.cost = item.price;
                         v.activeServiceLogs.push_back(logEntry);
                     }
                     v.currentServiceCost = v.partsCost + v.laborCost;
@@ -472,7 +462,6 @@ void checkServiceReminders(const std::vector<Customer>& customers, const std::ve
     if (!overdueFound) std::cout << "All active appointment vehicles are up to date on service schedules!\n";
 }
 
-// NEW FUNCTION 1: Search entire database for vehicles by keyword (Plate, Brand, or Model)
 void searchVehicleHistory(const std::vector<Customer>& customers) {
     std::string keyword;
     std::cout << "\nEnter keyword to search (Plate, Brand, or Model): ";
@@ -481,7 +470,7 @@ void searchVehicleHistory(const std::vector<Customer>& customers) {
     keyword = toUpper(keyword);
 
     std::cout << "\n========================================\n";
-    std::cout << "          VEHICLE SEARCH RESULTS        \n";
+    std::cout << "         VEHICLE SEARCH RESULTS         \n";
     std::cout << "========================================\n";
 
     bool found = false;
@@ -509,7 +498,6 @@ void searchVehicleHistory(const std::vector<Customer>& customers) {
     }
 }
 
-// NEW FUNCTION 2: Bulk update status for all active workshop vehicles matching a specific condition
 void updateAllVehicleStatuses(std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
     std::string targetStatus;
     std::cout << "\n--- BULK UPDATE WORKSHOP STATUS ---\n";
@@ -567,48 +555,6 @@ void updateAllVehicleStatuses(std::vector<Customer>& customers, const std::vecto
 
     std::cout << "Successfully updated " << updatedCount << " vehicle(s) from ["
         << targetStatus << "] to [" << newStatus << "]!\n";
-}
-
-void exportJobSheet(const Customer& customer, const Vehicle& vehicle) {
-    std::string filename = "JOBSHEET_" + vehicle.licensePlate + ".txt";
-    std::ofstream outFile(filename);
-
-    if (!outFile.is_open()) {
-        std::cout << "ERROR: Failed to create job sheet file!\n";
-        return;
-    }
-
-    outFile << "========================================================\n";
-    outFile << "                WORKSHOP BAY JOB SHEET                  \n";
-    outFile << "========================================================\n";
-    outFile << "Date            : " << getTodayDate() << "\n";
-    outFile << "Vehicle Plate   : " << vehicle.licensePlate << "\n";
-    outFile << "Model           : " << vehicle.brand << " " << vehicle.model << "\n";
-    outFile << "Customer Name   : " << customer.name << " (" << customer.phone << ")\n";
-    outFile << "Assigned Tech   : " << vehicle.assignedTechnician << "\n";
-    outFile << "Current Status  : " << vehicle.status << "\n";
-    outFile << "--------------------------------------------------------\n";
-    outFile << "LOGGED PARTS / COMPONENTS:\n";
-
-    if (vehicle.parts.empty()) {
-        outFile << "  (No parts logged yet)\n";
-    }
-    else {
-        for (size_t i = 0; i < vehicle.parts.size(); ++i) {
-            outFile << "  " << (i + 1) << ". " << vehicle.parts[i].name
-                << " - $" << std::fixed << std::setprecision(2) << vehicle.parts[i].price << "\n";
-        }
-    }
-
-    outFile << "--------------------------------------------------------\n";
-    outFile << std::fixed << std::setprecision(2);
-    outFile << "Parts Subtotal  : $" << vehicle.partsCost << "\n";
-    outFile << "Labor Charge    : $" << vehicle.laborCost << "\n";
-    outFile << "ESTIMATED TOTAL : $" << vehicle.currentServiceCost << "\n";
-    outFile << "========================================================\n";
-
-    outFile.close();
-    std::cout << "Job sheet saved successfully to [" << filename << "]!\n";
 }
 
 void resetVehicleServiceData(Vehicle& vehicle) {

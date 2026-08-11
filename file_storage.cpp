@@ -2,159 +2,185 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
-#include <iomanip>
 #include <algorithm>
 #include <cctype>
 
 using namespace std;
 
-// Static helper to parse a customer line and its associated vehicles & parts
-static Customer parseCustomerLine(const string& line, ifstream& inFile) {
+// Splits a line by '|' into its raw fields (does not consume the stream).
+static vector<string> splitFields(const string& line) {
+    vector<string> fields;
     stringstream ss(line);
-    Customer c;
-    string vehicleCountStr;
-
-    getline(ss, c.id, '|');
-    getline(ss, c.name, '|');
-    getline(ss, c.phone, '|');
-    getline(ss, c.membershipTier, '|');
-    getline(ss, vehicleCountStr, '|');
-
-    int vehicleCount = 0;
-    try { vehicleCount = stoi(vehicleCountStr); }
-    catch (...) { vehicleCount = 0; }
-
-    string vLine;
-    for (int i = 0; i < vehicleCount && getline(inFile, vLine); i++) {
-        stringstream vs(vLine);
-        Vehicle v;
-        string partsCostStr, laborCostStr, currentCostStr, partCountStr;
-
-        getline(vs, v.licensePlate, '|');
-        getline(vs, v.brand, '|');
-        getline(vs, v.model, '|');
-        getline(vs, v.lastServiceDate, '|');
-        getline(vs, v.status, '|');
-        getline(vs, v.assignedTechnician, '|');
-
-        getline(vs, partsCostStr, '|');
-        getline(vs, laborCostStr, '|');
-        getline(vs, currentCostStr, '|');
-        getline(vs, partCountStr, '|');
-
-        try { v.partsCost = stod(partsCostStr); }
-        catch (...) { v.partsCost = 0.0; }
-        try { v.laborCost = stod(laborCostStr); }
-        catch (...) { v.laborCost = 0.0; }
-        try { v.currentServiceCost = stod(currentCostStr); }
-        catch (...) { v.currentServiceCost = 0.0; }
-
-        int partCount = 0;
-        try { partCount = stoi(partCountStr); }
-        catch (...) { partCount = 0; }
-
-        for (int p = 0; p < partCount; p++) {
-            string partToken;
-            if (getline(vs, partToken, '|')) {
-                size_t delimPos = partToken.find(';');
-                if (delimPos != string::npos) {
-                    PartItem item;
-                    item.name = partToken.substr(0, delimPos);
-                    try { item.price = stod(partToken.substr(delimPos + 1)); }
-                    catch (...) { item.price = 0.0; }
-                    v.parts.push_back(item);
-
-                    stringstream logSs;
-                    logSs << item.name << " ($" << fixed << setprecision(2) << item.price << ")";
-
-                    ServiceLog logEntry;
-                    logEntry.date = v.lastServiceDate;
-                    logEntry.description = logSs.str();
-                    logEntry.cost = item.price;
-                    v.activeServiceLogs.push_back(logEntry);
-                }
-            }
-        }
-
-        c.vehicles.push_back(v);
+    string field;
+    while (getline(ss, field, '|')) {
+        fields.push_back(field);
     }
-
-    return c;
+    return fields;
 }
 
-// ===================== CUSTOMER FILE OPERATIONS =====================
-
-void loadCustomersFromFile(vector<Customer>& customers) {
-    customers.clear();
-    ifstream inFile("customers.txt");
-    if (!inFile.is_open()) return;
-
-    string line;
-    while (getline(inFile, line)) {
-        if (!line.empty()) {
-            customers.push_back(parseCustomerLine(line, inFile));
-        }
-    }
-    inFile.close();
+static double toDoubleSafe(const string& s) {
+    try { return stod(s); } catch (...) { return 0.0; }
 }
+static int toIntSafe(const string& s) {
+    try { return stoi(s); } catch (...) { return 0; }
+}
+
+// ===================================================
+// CUSTOMER + VEHICLE FILE I/O (my part)
+//
+// customers.txt : phone|name|membershipTier|totalPurchases
+// vehicles.txt  : phone|plate|brand|model|lastServiceDate|status|assignedTechnician|
+//                 partsCost|laborCost|lastServiceDescription|lastPartsUsed|currentServiceCost
+// ===================================================
 
 void saveCustomersToFile(const vector<Customer>& customers) {
-    ofstream outFile("customers.txt");
-    if (!outFile.is_open()) {
+    ofstream custFile("customers.txt");
+    if (!custFile.is_open()) {
         cout << "[ERROR] Could not open customers.txt for writing!\n";
         return;
     }
-
     for (const auto& c : customers) {
-        outFile << c.id << "|" << c.name << "|" << c.phone << "|"
-            << c.membershipTier << "|" << c.vehicles.size() << "\n";
+        custFile << c.phone << "|" << c.name << "|" << c.membershipTier << "|"
+                  << c.totalPurchases << "\n";
+    }
+    custFile.close();
 
+    ofstream vehFile("vehicles.txt");
+    if (!vehFile.is_open()) {
+        cout << "[ERROR] Could not open vehicles.txt for writing!\n";
+        return;
+    }
+    for (const auto& c : customers) {
         for (const auto& v : c.vehicles) {
-            outFile << v.licensePlate << "|" << v.brand << "|" << v.model << "|"
-                << v.lastServiceDate << "|" << v.status << "|"
-                << v.assignedTechnician << "|"
-                << v.partsCost << "|"
-                << v.laborCost << "|"
-                << v.currentServiceCost << "|"
-                << v.parts.size();
-
-            for (const auto& item : v.parts) {
-                outFile << "|" << item.name << ";" << item.price;
-            }
-            outFile << "\n";
+            vehFile << c.phone << "|" << v.licensePlate << "|" << v.brand << "|" << v.model << "|"
+                    << v.lastServiceDate << "|" << v.status << "|" << v.assignedTechnician << "|"
+                    << v.partsCost << "|" << v.laborCost << "|"
+                    << v.lastServiceDescription << "|" << v.lastPartsUsed << "|"
+                    << v.currentServiceCost << "\n";
         }
     }
-
-    outFile.close();
+    vehFile.close();
 }
 
-// ===================== APPOINTMENT FILE OPERATIONS =====================
-
-void loadAppointmentsFromFile(vector<Appointment>& appointments) {
-    appointments.clear();
-    ifstream inFile("appointments.txt");
-    if (!inFile.is_open()) return;
-
-    string line;
-    while (getline(inFile, line)) {
-        if (line.empty()) continue;
-        stringstream ss(line);
-        Appointment a;
-        string activeStr;
-
-        getline(ss, a.appointmentId, '|');
-        getline(ss, a.customerId, '|');
-        getline(ss, a.licensePlate, '|');
-        getline(ss, a.date, '|');
-        getline(ss, a.time, '|');
-        getline(ss, a.serviceType, '|');
-        getline(ss, activeStr, '|');
-
-        a.isActive = (activeStr == "1" || activeStr == "true");
-        appointments.push_back(a);
+void loadCustomersFromFile(vector<Customer>& customers) {
+    ifstream custFile("customers.txt");
+    if (!custFile.is_open()) {
+        return; // First run - no data yet, that's fine
     }
-    inFile.close();
+
+    customers.clear();
+    bool legacyDetected = false;
+    string line;
+
+    while (getline(custFile, line)) {
+        if (line.empty()) continue;
+        vector<string> fields = splitFields(line);
+
+        if (fields.size() >= 5) {
+            // ---- OLDEST legacy format: id|name|phone|tier|vehicleCount (with
+            //      vehicles embedded directly below the customer line) ----
+            legacyDetected = true;
+
+            Customer c;
+            // fields[0] = old id -> discarded, phone is now the only identifier
+            c.name = fields[1];
+            c.phone = fields[2];
+            c.membershipTier = fields[3];
+            c.totalPurchases = 0.0;
+
+            int vehicleCount = toIntSafe(fields[4]);
+            string vLine;
+            for (int i = 0; i < vehicleCount && getline(custFile, vLine); i++) {
+                vector<string> vf = splitFields(vLine);
+                Vehicle v;
+                if (vf.size() >= 7) {
+                    v.licensePlate = vf[0];
+                    v.brand = vf[1];
+                    v.model = vf[2];
+                    v.lastServiceDate = vf[3];
+                    v.status = vf[4];
+                    v.assignedTechnician = vf[5];
+                    v.currentServiceCost = toDoubleSafe(vf[6]);
+                }
+                c.vehicles.push_back(v);
+            }
+            customers.push_back(c);
+        }
+        else {
+            // ---- phone|name|tier[|totalPurchases] ----
+            Customer c;
+            c.phone = fields.size() > 0 ? fields[0] : "";
+            c.name = fields.size() > 1 ? fields[1] : "";
+            c.membershipTier = fields.size() > 2 ? fields[2] : "Regular";
+            c.totalPurchases = fields.size() > 3 ? toDoubleSafe(fields[3]) : 0.0;
+            customers.push_back(c);
+        }
+    }
+    custFile.close();
+
+    if (legacyDetected) {
+        cout << "[SYSTEM] Detected legacy customer file (with Customer ID) - migrated "
+             << customers.size() << " record(s) to the current phone-based format.\n";
+        saveCustomersToFile(customers); // rewrite both files in the current format
+        return; // vehicles were already captured above from the embedded legacy data
+    }
+
+    // ---- Load vehicles.txt and re-attach each vehicle to its owner by phone ----
+    ifstream vehFile("vehicles.txt");
+    if (!vehFile.is_open()) {
+        cout << "[SYSTEM] Loaded " << customers.size() << " customer record(s). (No vehicles.txt found yet.)\n";
+        return;
+    }
+
+    int vehiclesLoaded = 0;
+    while (getline(vehFile, line)) {
+        if (line.empty()) continue;
+        vector<string> vf = splitFields(line);
+        if (vf.size() < 8) continue; // malformed line, skip
+
+        const string& ownerPhone = vf[0];
+        Vehicle v;
+        v.licensePlate = vf[1];
+        v.brand = vf[2];
+        v.model = vf[3];
+        v.lastServiceDate = vf[4];
+        v.status = vf[5];
+        v.assignedTechnician = vf[6];
+
+        if (vf.size() >= 12) {
+            // current format: ...|partsCost|laborCost|lastServiceDescription|lastPartsUsed|currentServiceCost
+            v.partsCost = toDoubleSafe(vf[7]);
+            v.laborCost = toDoubleSafe(vf[8]);
+            v.lastServiceDescription = vf[9];
+            v.lastPartsUsed = vf[10];
+            v.currentServiceCost = toDoubleSafe(vf[11]);
+        }
+        else {
+            // previous format: ...|currentServiceCost (no parts/labor split yet)
+            v.currentServiceCost = toDoubleSafe(vf[7]);
+        }
+
+        for (auto& c : customers) {
+            if (c.phone == ownerPhone) {
+                c.vehicles.push_back(v);
+                vehiclesLoaded++;
+                break;
+            }
+        }
+    }
+    vehFile.close();
+
+    cout << "[SYSTEM] Loaded " << customers.size() << " customer record(s) and "
+         << vehiclesLoaded << " vehicle record(s).\n";
 }
+
+// ===================================================
+// APPOINTMENT FILE I/O
+// (best-effort implementation based on the appointments.txt format that was
+//  already in the project - Appointment module owner should double check this)
+//
+// appointments.txt : appointmentId|customerId|licensePlate|date|time|serviceType|isActive(0/1)
+// ===================================================
 
 void saveAppointmentsToFile(const vector<Appointment>& appointments) {
     ofstream outFile("appointments.txt");
@@ -162,95 +188,65 @@ void saveAppointmentsToFile(const vector<Appointment>& appointments) {
         cout << "[ERROR] Could not open appointments.txt for writing!\n";
         return;
     }
-
     for (const auto& a : appointments) {
-        outFile << a.appointmentId << "|" << a.customerId << "|"
-            << a.licensePlate << "|" << a.date << "|"
-            << a.time << "|" << a.serviceType << "|"
-            << (a.isActive ? "1" : "0") << "\n";
+        outFile << a.appointmentId << "|" << a.customerId << "|" << a.licensePlate << "|"
+                << a.date << "|" << a.time << "|" << a.serviceType << "|"
+                << (a.isActive ? 1 : 0) << "\n";
     }
     outFile.close();
 }
 
-// ===================== INVOICE FILE OPERATIONS =====================
-
-void loadInvoicesFromFile(vector<Invoice>& invoices) {
-    invoices.clear();
-    ifstream inFile("invoices.txt");
+void loadAppointmentsFromFile(vector<Appointment>& appointments) {
+    ifstream inFile("appointments.txt");
     if (!inFile.is_open()) return;
 
+    appointments.clear();
     string line;
     while (getline(inFile, line)) {
         if (line.empty()) continue;
-        stringstream ss(line);
-        Invoice inv;
-        string partsStr, laborStr, discountStr, taxStr, totalStr, paidStr;
+        vector<string> f = splitFields(line);
+        if (f.size() < 7) continue; // malformed line, skip
 
-        getline(ss, inv.invoiceId, '|');
-        getline(ss, inv.customerId, '|');
-        getline(ss, inv.licensePlate, '|');
-        getline(ss, inv.date, '|');
-        getline(ss, partsStr, '|');
-        getline(ss, laborStr, '|');
-        getline(ss, discountStr, '|');
-        getline(ss, taxStr, '|');
-        getline(ss, totalStr, '|');
-        getline(ss, inv.paymentType, '|');
-        getline(ss, paidStr, '|');
-
-        try { inv.partsCost = stod(partsStr); }
-        catch (...) { inv.partsCost = 0.0; }
-        try { inv.laborCost = stod(laborStr); }
-        catch (...) { inv.laborCost = 0.0; }
-        try { inv.discountAmount = stod(discountStr); }
-        catch (...) { inv.discountAmount = 0.0; }
-        try { inv.taxAmount = stod(taxStr); }
-        catch (...) { inv.taxAmount = 0.0; }
-        try { inv.totalAmount = stod(totalStr); }
-        catch (...) { inv.totalAmount = 0.0; }
-        inv.isPaid = (paidStr == "1" || paidStr == "true");
-
-        invoices.push_back(inv);
+        Appointment a;
+        a.appointmentId = f[0];
+        a.customerId = f[1];
+        a.licensePlate = f[2];
+        a.date = f[3];
+        a.time = f[4];
+        a.serviceType = f[5];
+        a.isActive = (toIntSafe(f[6]) != 0);
+        appointments.push_back(a);
     }
     inFile.close();
 }
 
-void saveInvoicesToFile(const vector<Invoice>& invoices) {
-    ofstream outFile("invoices.txt");
-    if (!outFile.is_open()) {
-        cout << "[ERROR] Could not open invoices.txt for writing!\n";
-        return;
-    }
+// ===================================================
+// INVOICE FILE I/O
+// PLACEHOLDER: Invoice now contains a nested vector<InvoiceItem>, which needs
+// its own serialization design. Billing module owner should implement this.
+// ===================================================
 
-    for (const auto& inv : invoices) {
-        outFile << inv.invoiceId << "|" << inv.customerId << "|"
-            << inv.licensePlate << "|" << inv.date << "|"
-            << inv.partsCost << "|" << inv.laborCost << "|"
-            << inv.discountAmount << "|" << inv.taxAmount << "|"
-            << inv.totalAmount << "|" << inv.paymentType << "|"
-            << (inv.isPaid ? "1" : "0") << "\n";
-    }
-    outFile.close();
+void saveInvoicesToFile(const vector<Invoice>& invoices) {
+    // TODO: Billing module owner should implement this (Invoice.items is nested data).
 }
 
-// ===================== BUNDLED MASTER LOAD / SAVE =====================
+void loadInvoicesFromFile(vector<Invoice>& invoices) {
+    // TODO: Billing module owner should implement this (Invoice.items is nested data).
+}
+
+// ===================================================
+// COMBINED HELPERS (used by main.cpp)
+// ===================================================
 
 void loadAllData(vector<Customer>& customers, vector<Appointment>& appointments, vector<Invoice>& invoices) {
     loadCustomersFromFile(customers);
     loadAppointmentsFromFile(appointments);
     loadInvoicesFromFile(invoices);
-
-    for (auto& c : customers) {
-        c.totalPurchases = 0.0;
-        for (const auto& inv : invoices) {
-            if (inv.customerId == c.id && inv.isPaid) {
-                c.totalPurchases += inv.totalAmount;
-            }
-        }
-    }
 }
 
-void saveAllData(const vector<Customer>& customers, const vector<Appointment>& appointments, const vector<Invoice>& invoices) {
+void saveAllData(const vector<Customer>& customers,
+                  const vector<Appointment>& appointments,
+                  const vector<Invoice>& invoices) {
     saveCustomersToFile(customers);
     saveAppointmentsToFile(appointments);
     saveInvoicesToFile(invoices);

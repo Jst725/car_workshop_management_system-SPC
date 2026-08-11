@@ -167,7 +167,7 @@ static void displayAppointmentHeader() {
     std::cout << "\n----------------------------------------------------------------------------------------\n";
     std::cout << std::left << std::setw(5) << "No."
         << std::setw(10) << "Appt ID"
-        << std::setw(12) << "Cust ID"
+        << std::setw(12) << "Phone"
         << std::setw(12) << "Plate"
         << std::setw(14) << "Date"
         << std::setw(10) << "Time"
@@ -239,7 +239,7 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     app.serviceType = "";
     app.isActive = true;
 
-    std::cout << "\nEnter Customer ID (or 0 to Return to Main Menu): ";
+    std::cout << "\nEnter Customer Phone Number (or 0 to Return to Main Menu): ";
     std::cin >> app.customerId;
     if (app.customerId == "0") return;
 
@@ -247,17 +247,17 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
 
     Customer* targetCustomer = nullptr;
     for (auto& c : customers) {
-        if (c.id == app.customerId) {
+        if (c.phone == app.customerId) {
             targetCustomer = &c;
             break;
         }
     }
     if (!targetCustomer) {
-        std::cout << "ERROR: Customer ID not found!\n";
+        std::cout << "ERROR: Customer phone number not found!\n";
         return;
     }
 
-    std::cout << "\nCustomer Found: " << targetCustomer->name << " (" << targetCustomer->id << ")\n";
+    std::cout << "\nCustomer Found: " << targetCustomer->name << " (" << targetCustomer->phone << ")\n";
 
     std::string selectedPlate;
     while (true) {
@@ -616,7 +616,7 @@ void generateBookingSlip(const Appointment& app) {
     std::cout << "         APPOINTMENT CONFIRMATION       \n";
     std::cout << "----------------------------------------\n";
     std::cout << "Booking ID    : " << app.appointmentId << "\n";
-    std::cout << "Customer ID   : " << app.customerId << "\n";
+    std::cout << "Customer Phone: " << app.customerId << "\n";
     std::cout << "Vehicle Plate : " << app.licensePlate << "\n";
     std::cout << "Schedule      : " << app.date << " @ " << app.time << "\n";
     std::cout << "Services/Fees : " << app.serviceType << "\n";
@@ -877,7 +877,7 @@ static void cancelSpecificAppointment(Appointment* app) {
 
 void searchAppointment(const std::vector<Appointment>& appointments) {
     std::string query;
-    std::cout << "\nEnter Booking ID or Customer ID (or 0 to Return to Main Menu): ";
+    std::cout << "\nEnter Booking ID or Customer Phone Number (or 0 to Return to Main Menu): ";
     std::cin >> query;
     if (query == "0") return;
 

@@ -1,4 +1,4 @@
-#include "bill.h"
+#include "billing.h"
 #include "appointment.h"
 #include "vehicle.h"
 #include "customer.h"
@@ -79,7 +79,7 @@ void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customer
                 else if (billChoice == 3) {
                     // Search Bill submenu routing
                     std::string sInput;
-                    std::cout << "\n1. Search by Customer Name\n2. Search by Plate Number\n3. Search by Bill ID\n4. Back\nEnter choice: ";
+                    std::cout << "\n1. Search by Customer Phone\n2. Search by Plate Number\n3. Search by Bill ID\n4. Back\nEnter choice: ";
                     int sChoice;
                     std::cin >> sChoice;
                     if (sChoice == 1 || sChoice == 2 || sChoice == 3) {
@@ -126,7 +126,7 @@ void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customer
                             double sub = targetB->partsCost + targetB->laborCost;
                             double discRate = 0.0;
                             for (const auto& c : customers) {
-                                if (c.id == targetB->customerId) {
+                                if (c.phone == targetB->customerId) {
                                     discRate = getTierDiscountRate(c.membershipTier);
                                 }
                             }
@@ -243,7 +243,7 @@ void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customer
                             inv.paymentType = "Unpaid";
                             // Reverse customer total spending contribution
                             for (auto& c : customers) {
-                                if (c.id == inv.customerId) {
+                                if (c.phone == inv.customerId) {
                                     c.totalPurchases -= inv.totalAmount;
                                     if (c.totalPurchases < 0) c.totalPurchases = 0;
                                     updateCustomerTier(c);
@@ -352,7 +352,7 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
 
     Invoice inv;
     inv.invoiceId = "B00" + std::to_string(invoices.size() + 1);
-    inv.customerId = targetCustomer->id;
+    inv.customerId = targetCustomer->phone;
     inv.licensePlate = targetVehicle->licensePlate;
     inv.date = targetVehicle->lastServiceDate;
     inv.partsCost = targetVehicle->partsCost;
@@ -395,7 +395,7 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     std::cout << "                        OFFICIAL WORKSHOP BILL                           \n";
     std::cout << "=========================================================================\n";
     std::cout << "Bill ID         : " << inv.invoiceId << "\n";
-    std::cout << "Customer        : " << targetCustomer->name << " (ID: " << targetCustomer->id << ")\n";
+    std::cout << "Customer        : " << targetCustomer->name << " (Phone: " << targetCustomer->phone << ")\n";
     std::cout << "Membership      : " << targetCustomer->membershipTier << "\n";
     std::cout << "Discount        : " << (discountRate * 100.0) << "%\n";
     std::cout << "Discount Amount : RM" << std::fixed << std::setprecision(2) << inv.discountAmount << "\n";
@@ -437,7 +437,7 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     bool hasUnpaidBills = false;
     int counter = 1;
     for (const auto& inv : invoices) {
-        if (inv.customerId == targetCustomer->id && !inv.isPaid) {
+        if (inv.customerId == targetCustomer->phone && !inv.isPaid) {
             hasUnpaidBills = true;
             std::cout << counter << ". " << inv.invoiceId << " | " << inv.licensePlate << " | RM" << std::fixed << std::setprecision(2) << inv.totalAmount << " | Unpaid\n";
             counter++;
@@ -461,7 +461,7 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     Invoice* selectedInvoice = nullptr;
     int curr = 1;
     for (auto& inv : invoices) {
-        if (inv.customerId == targetCustomer->id && !inv.isPaid) {
+        if (inv.customerId == targetCustomer->phone && !inv.isPaid) {
             if (curr == choice) {
                 selectedInvoice = &inv;
                 break;
@@ -574,7 +574,7 @@ void displayInvoices(const std::vector<Invoice>& invoices) {
 
 void viewCustomerHistory(const std::vector<Customer>& customers, const std::vector<Invoice>& invoices) {
     std::string input;
-    std::cout << "\nEnter Customer Name or License Plate or 0 to Return: ";
+    std::cout << "\nEnter Customer Name, Phone Number, or License Plate (or 0 to Return): ";
     std::cin.ignore();
     std::getline(std::cin, input);
     if (input == "0") return;
@@ -583,7 +583,7 @@ void viewCustomerHistory(const std::vector<Customer>& customers, const std::vect
     const Customer* foundCustomer = nullptr;
 
     for (const auto& c : customers) {
-        if (toUpper(c.name) == searchKey || toUpper(c.id) == searchKey) {
+        if (toUpper(c.name) == searchKey || c.phone == searchKey) {
             foundCustomer = &c;
             break;
         }
@@ -609,7 +609,6 @@ void viewCustomerHistory(const std::vector<Customer>& customers, const std::vect
     std::cout << "\n=======================================================\n";
     std::cout << "               CUSTOMER BILLING HISTORY                \n";
     std::cout << "=======================================================\n";
-    std::cout << "Customer ID    : " << foundCustomer->id << "\n";
     std::cout << "Name           : " << foundCustomer->name << "\n";
     std::cout << "Phone          : " << foundCustomer->phone << "\n";
     std::cout << "Membership Tier: " << foundCustomer->membershipTier << "\n";
@@ -627,7 +626,7 @@ void viewCustomerHistory(const std::vector<Customer>& customers, const std::vect
     std::cout << "-------------------------------------------------------\n";
 
     for (const auto& inv : invoices) {
-        if (inv.customerId == foundCustomer->id) {
+        if (inv.customerId == foundCustomer->phone) {
             hasInvoices = true;
             std::cout << std::left << std::setw(10) << inv.invoiceId
                 << std::setw(12) << inv.licensePlate

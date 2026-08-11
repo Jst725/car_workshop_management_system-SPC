@@ -346,7 +346,7 @@ void viewServiceBreakdown(const std::vector<Customer>& customers, const std::vec
                 std::cout << "        ITEMIZED SERVICE BREAKDOWN      \n";
                 std::cout << "========================================\n";
                 std::cout << "Vehicle Plate : " << v.licensePlate << " (" << v.brand << " " << v.model << ")\n";
-                std::cout << "Owner         : " << c.name << " (" << c.id << ")\n";
+                std::cout << "Owner         : " << c.name << " (Ph: " << c.phone << ")\n";
                 std::cout << "Technician    : " << v.assignedTechnician << "\n";
                 std::cout << "Status        : " << v.status << "\n";
                 std::cout << "----------------------------------------\n";

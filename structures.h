@@ -8,18 +8,18 @@
 struct PartItem {
     std::string partId;
     std::string name;
-    double price;
-    int stockQuantity;
+    double price = 0.0;
+    int stockQuantity = 0;
 };
 
 // Definition for service logs or active task descriptions
 struct ServiceLog {
     std::string date;
     std::string description;
-    double cost;
+    double cost = 0.0;
 };
 
-// NEW: Itemized detail structure to store specific service lines and parts on the invoice
+// Itemized detail structure to store specific service lines and parts on the invoice
 struct InvoiceItem {
     std::string description; // e.g., Part name or labor task
     std::string itemType;    // "Part" or "Labor"
@@ -36,50 +36,50 @@ struct Vehicle {
     std::string assignedTechnician;
     std::string lastServiceDate;
 
-    // Added back to match billing.cpp requirements
     std::string lastPartsUsed;
     std::string lastServiceDescription;
 
-    double partsCost;
-    double laborCost;
-    double currentServiceCost;
-    std::vector<PartItem> parts;             // Updated to use PartItem
-    std::vector<ServiceLog> activeServiceLogs; // Added active service logs
+    double partsCost = 0.0;
+    double laborCost = 0.0;
+    double currentServiceCost = 0.0;
+    std::vector<PartItem> parts;
+    std::vector<ServiceLog> activeServiceLogs;
 };
 
 struct Customer {
-    std::string id;
+    // NOTE: Customer ID removed - phone number is now the unique identifier
+    // used everywhere (searching, appointments, invoices, deleting, etc.).
     std::string name;
     std::string phone;
-    std::string membershipTier;     // "Standard", "Silver", "Gold", "VIP"
-    double totalPurchases;
+    std::string membershipTier = "Regular"; // "Regular", "Silver", "Gold", "VIP"
+    double totalPurchases = 0.0;
     std::vector<Vehicle> vehicles;
 };
 
 struct Appointment {
     std::string appointmentId;
-    std::string customerId;
+    std::string customerId; // now holds the customer's PHONE NUMBER
     std::string licensePlate;
     std::string date;         // YYYY-MM-DD
     std::string time;         // HH:MM (24-hour)
     std::string serviceType;  // Description of service
-    bool isActive;            // True = Confirmed, False = Cancelled
+    bool isActive = true;     // True = Confirmed, False = Cancelled
 };
 
 struct Invoice {
     std::string invoiceId;
-    std::string customerId;
+    std::string customerId; // now holds the customer's PHONE NUMBER
     std::string licensePlate;
     std::string date;
 
-    std::vector<InvoiceItem> items; // <--- NEW: Itemized service detail list
+    std::vector<InvoiceItem> items;
 
-    double partsCost;
-    double laborCost;
-    double discountAmount;
-    double taxAmount;
-    double totalAmount;
-    bool isPaid;
+    double partsCost = 0.0;
+    double laborCost = 0.0;
+    double discountAmount = 0.0;
+    double taxAmount = 0.0;
+    double totalAmount = 0.0;
+    bool isPaid = false;
     std::string paymentType;
 };
 

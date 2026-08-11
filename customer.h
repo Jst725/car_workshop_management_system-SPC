@@ -5,23 +5,22 @@
 #include <vector>
 #include <string>
 
-// Core Customer Functions
+// Main menu for the Customer Management module (matches main.cpp: customerMenu(customers))
 void customerMenu(std::vector<Customer>& customers);
-void addCustomer(std::vector<Customer>& customers);
+
+// Core customer operations (all keyed by PHONE NUMBER, no customer ID anymore)
+void registerCustomer(std::vector<Customer>& customers);
+void addVehicleToCustomer(std::vector<Customer>& customers);
 void viewCustomers(const std::vector<Customer>& customers);
 void searchCustomer(const std::vector<Customer>& customers);
-void updateCustomer(std::vector<Customer>& customers);
 void deleteCustomer(std::vector<Customer>& customers);
 
-// Loyalty Tier Functions
-void updateCustomerTier(Customer& customer);
-double getTierDiscountRate(const std::string& tier);
-
-// Input & Verification Helper Checks
-bool isValidName(const std::string& name);
-bool isValidPhone(const std::string& phone);
-bool isPhoneExists(const std::vector<Customer>& customers, const std::string& phone, const std::string& currentCustId = "");
-bool isValidLicensePlate(const std::string& plate);
-bool isLicensePlateExists(const std::vector<Customer>& customers, const std::string& plate);
+// Validation helpers
+bool isValidName(const std::string& str);
+bool isValidPhone(const std::string& str);
+bool isValidPlate(const std::string& str);
+bool isValidLicensePlate(const std::string& str); // alias used by appointment.cpp
+bool isValidVehicleText(const std::string& str);
+bool isPlateTaken(const std::vector<Customer>& customers, const std::string& plate);
 
 #endif

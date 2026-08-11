@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="car_workshop_management_system-SPC/car_workshop_management_system-SPC.vcxproj" Id="b5deea6c-1195-4919-bdbd-9899ba97b09f" />
+  <Project Path="car management.vcxproj" Id="6ee9b48d-5af5-416d-a298-6aeb2bfa5b51" />
 </Solution>

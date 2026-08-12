@@ -3,15 +3,7 @@
 #include <vector>
 #include <string>
 
-// ---- Customer module (owned by me) ----
-// saveCustomersToFile() writes BOTH files:
-//   customers.txt -> phone|name|membershipTier|totalPurchases
-//   vehicles.txt  -> phone|plate|brand|model|lastServiceDate|status|assignedTechnician|
-//                     partsCost|laborCost|lastServiceDescription|lastPartsUsed|currentServiceCost
-// loadCustomersFromFile() reads both files back and re-links each vehicle to
-// its owner via the phone number. It also auto-migrates older file formats
-// from earlier versions of this project (with Customer ID, or missing fields)
-// so existing data is never lost.
+
 void saveCustomersToFile(const std::vector<Customer>& customers);
 void loadCustomersFromFile(std::vector<Customer>& customers);
 

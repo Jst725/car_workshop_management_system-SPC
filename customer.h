@@ -23,4 +23,7 @@ bool isValidLicensePlate(const std::string& str); // alias used by appointment.c
 bool isValidVehicleText(const std::string& str);
 bool isPlateTaken(const std::vector<Customer>& customers, const std::string& plate);
 
+// String helper
+std::string toUpper(std::string str);
+
 #endif

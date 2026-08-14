@@ -1,6 +1,6 @@
 #include "billing.h"
 #include "appointment.h"
-#include "vehicle.h"
+#include "service.h"
 #include "customer.h"
 #include "file_storage.h"
 #include <iostream>
@@ -282,8 +282,12 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     bool foundValidService = false;
     int indexCounter = 1;
     // Map temporary reference table for choice selection
+    // NOTE: eligibility is "Ready for Pickup", not "Completed" - "Completed"
+    // is only ever set by resetVehicleServiceData() AFTER a bill has been
+    // paid, so gating invoice generation on "Completed" made it impossible
+    // to ever generate the first invoice for a vehicle at all.
     for (auto& v : targetCustomer->vehicles) {
-        if (v.currentServiceCost > 0.0 && v.status == "Completed") {
+        if (v.currentServiceCost > 0.0 && v.status == "Ready for Pickup") {
             foundValidService = true;
             std::cout << indexCounter << ". S00" << indexCounter << " | " << v.licensePlate << " | " << (v.lastServiceDescription.empty() ? "General Service" : v.lastServiceDescription) << " | RM" << std::fixed << std::setprecision(2) << v.currentServiceCost << "\n";
             indexCounter++;
@@ -307,7 +311,7 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     Vehicle* targetVehicle = nullptr;
     int currentIdx = 1;
     for (auto& v : targetCustomer->vehicles) {
-        if (v.currentServiceCost > 0.0 && v.status == "Completed") {
+        if (v.currentServiceCost > 0.0 && v.status == "Ready for Pickup") {
             if (currentIdx == choiceIndex) {
                 targetVehicle = &v;
                 break;
@@ -493,10 +497,6 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     case 3: selectedInvoice->paymentType = "E-Wallet"; break;
     }
 
-    // Only fully settle the bill (mark paid, update tier, reset vehicle,
-    // close appointment) once the amount actually covers the total.
-    // Previously this happened unconditionally regardless of amountPaid,
-    // so a partial payment silently closed the bill in full.
     double balance = selectedInvoice->totalAmount - amountPaid;
     if (balance < 0) balance = 0.0;
 
@@ -511,6 +511,15 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
             resetVehicleServiceData(*targetVehicle);
         }
 
+        // Close EVERY appointment that's currently active for this vehicle.
+        // The invoice bills the vehicle's ENTIRE accrued laborCost/partsCost
+        // (see generateInvoice above - it snapshots v.laborCost/v.partsCost
+        // as one lump sum, which is the SUM of every active appointment's
+        // fee added to it). Paying that invoice off settles all of them, not
+        // just whichever happened to be oldest - closing only one used to
+        // leave any other active appointment dangling: it stayed "Active"
+        // even though resetVehicleServiceData() above had already wiped the
+        // cost it was billed for down to $0.
         for (auto& app : appointments) {
             if (app.licensePlate == selectedInvoice->licensePlate && app.isActive) {
                 app.isActive = false;

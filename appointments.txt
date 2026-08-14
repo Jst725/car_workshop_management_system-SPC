@@ -1,6 +1,6 @@
-APP101|CUS0001|BJE538|2026-09-08|21:21|repair|0
-APP0102|CUS0002|BBC223|2026-09-09|23:59|Interim (Minor) Service -> Oil & Filter Change|1
-APP0103|CUS0001|BJE538|2026-07-07|09:03|Full (Standard) Service -> Comprehensive Maintenance|0
-APP0104|CUS0001|BJE538|2026-08-12|12:00|Interim (Minor) Service -> Oil & Filter Change|0
-APP0105|CUS0001|BJE538|2027-08-19|20:20|(1) [Car Problem / Repair Request] Engine & Driveability Issues -> Engine Stalling / Rough Idle |0
-APP0106|CUS0001|BJE538|2026-09-09|09:09|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0
+APP0001|01123456789|BJE427|2026-09-09|09:09|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] {Total Service Fee: $130.00}|1
+APP0002|01123456789|HAH339|2026-09-10|09:10|(1) [Car Problems / Repair Issues] Engine Problems -> Engine Cannot Start |0
+APP0003|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0
+APP0004|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0
+APP0005|01123456789|BJE427|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] {Total Service Fee: $130.00}|0
+APP0006|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] | (2) [Scheduled Maintenance / Servicing] Full Periodic Service -> Brake System Service & Flush [$140.00] {Total Service Fee: $270.00}|1

@@ -8,6 +8,14 @@
 
 using namespace std;
 
+// Helper: Convert string to uppercase
+static string toUpper(string str) {
+    for (char& c : str) {
+        c = static_cast<char>(toupper(static_cast<unsigned char>(c)));
+    }
+    return str;
+}
+
 // ===================================================
 // VALIDATION HELPERS
 // ===================================================
@@ -72,9 +80,10 @@ bool isValidVehicleText(const string& str) {
 // Checks the plate across EVERY customer's vehicle list (not just one customer),
 // since license plates must be unique system-wide.
 bool isPlateTaken(const vector<Customer>& customers, const string& plate) {
+    string upperPlate = toUpper(plate);
     for (const auto& c : customers) {
         for (const auto& v : c.vehicles) {
-            if (v.licensePlate == plate) return true;
+            if (v.licensePlate == upperPlate) return true;
         }
     }
     return false;
@@ -213,6 +222,7 @@ void addVehicleToCustomer(vector<Customer>& customers) {
     while (true) {
         cout << "Enter NEW Vehicle License Plate (Must mix letters & numbers): ";
         cin >> v.licensePlate;
+        v.licensePlate = toUpper(v.licensePlate); // Convert to uppercase
         if (!isValidPlate(v.licensePlate)) {
             cout << "[ERROR] Invalid plate format!\n";
             continue;
@@ -229,6 +239,7 @@ void addVehicleToCustomer(vector<Customer>& customers) {
     while (true) {
         cout << "Enter Vehicle Brand (letters/numbers, spaces and '-' only): ";
         getline(cin, v.brand);
+        v.brand = toUpper(v.brand); // Convert to uppercase
         if (isValidVehicleText(v.brand)) break;
         cout << "[ERROR] Invalid brand! Only letters, numbers, spaces and '-' are allowed.\n";
     }
@@ -236,6 +247,7 @@ void addVehicleToCustomer(vector<Customer>& customers) {
     while (true) {
         cout << "Enter Vehicle Model (letters/numbers, spaces and '-' only): ";
         getline(cin, v.model);
+        v.model = toUpper(v.model); // Convert to uppercase
         if (isValidVehicleText(v.model)) break;
         cout << "[ERROR] Invalid model! Only letters, numbers, spaces and '-' are allowed.\n";
     }
@@ -251,7 +263,7 @@ void addVehicleToCustomer(vector<Customer>& customers) {
 
     target->vehicles.push_back(v);
     cout << "\n[SUCCESS] Vehicle " << v.licensePlate << " added to " << target->name
-         << ". Total vehicles on file: " << target->vehicles.size() << "\n";
+        << ". Total vehicles on file: " << target->vehicles.size() << "\n";
 }
 
 // ===================================================
@@ -272,9 +284,9 @@ void viewCustomers(const vector<Customer>& customers) {
     for (size_t i = 0; i < customers.size(); i++) {
         const Customer& c = customers[i];
         cout << "[" << (i + 1) << "] " << left << setw(20) << c.name
-             << " | Phone: " << setw(12) << c.phone
-             << " | Tier: " << setw(8) << c.membershipTier
-             << " | Total Spent: $" << fixed << setprecision(2) << c.totalPurchases << "\n";
+            << " | Phone: " << setw(12) << c.phone
+            << " | Tier: " << setw(8) << c.membershipTier
+            << " | Total Spent: $" << fixed << setprecision(2) << c.totalPurchases << "\n";
 
         if (c.vehicles.empty()) {
             cout << "      Vehicles: (none registered yet)\n";
@@ -283,8 +295,8 @@ void viewCustomers(const vector<Customer>& customers) {
             cout << "      Vehicles (" << c.vehicles.size() << "):\n";
             for (const auto& v : c.vehicles) {
                 cout << "        - " << left << setw(10) << v.licensePlate
-                     << setw(20) << (v.brand + " " + v.model)
-                     << "Status: " << v.status << "\n";
+                    << setw(20) << (v.brand + " " + v.model)
+                    << "Status: " << v.status << "\n";
                 totalVehicles++;
             }
         }
@@ -315,12 +327,13 @@ void searchCustomer(const vector<Customer>& customers) {
             cout << "----------------------------------------\n";
             if (c.vehicles.empty()) {
                 cout << "No vehicles registered.\n";
-            } else {
+            }
+            else {
                 cout << "Vehicles:\n";
                 for (const auto& v : c.vehicles) {
                     cout << "  - " << v.licensePlate << " (" << v.brand << " " << v.model << ") "
-                         << "| Status: " << v.status
-                         << " | Accrued Cost: $" << fixed << setprecision(2) << v.currentServiceCost << "\n";
+                        << "| Status: " << v.status
+                        << " | Accrued Cost: $" << fixed << setprecision(2) << v.currentServiceCost << "\n";
                 }
             }
             return;
@@ -343,13 +356,14 @@ void deleteCustomer(vector<Customer>& customers) {
     for (size_t i = 0; i < customers.size(); i++) {
         if (customers[i].phone == phone) {
             cout << "Delete " << customers[i].name << " (" << customers[i].phone << ") and "
-                 << customers[i].vehicles.size() << " linked vehicle(s)? (Y/N): ";
+                << customers[i].vehicles.size() << " linked vehicle(s)? (Y/N): ";
             char confirm;
             cin >> confirm;
             if (confirm == 'Y' || confirm == 'y') {
                 customers.erase(customers.begin() + i);
                 cout << "[SUCCESS] Customer deleted.\n";
-            } else {
+            }
+            else {
                 cout << "Operation cancelled.\n";
             }
             return;

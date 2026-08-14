@@ -4,7 +4,7 @@
 #include "file_storage.h"
 #include "customer.h"
 #include "appointment.h"
-#include "vehicle.h"
+#include "service.h"
 #include "billing.h"
 #include "report.h"
 
@@ -23,7 +23,7 @@ int main() {
         std::cout << "==================================================\n";
         std::cout << "1. Customer Management\n";
         std::cout << "2. Appointment Management\n";
-        std::cout << "3. Vehicle Management\n";
+        std::cout << "3. Services Management\n";
         std::cout << "4. Billing & Payment\n";
         std::cout << "5. Reports & Analytics\n";
         std::cout << "0. Exit System\n";

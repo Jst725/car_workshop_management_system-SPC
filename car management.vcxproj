@@ -141,6 +141,7 @@
   <ItemGroup>
     <ClInclude Include="appointment.h" />
     <ClInclude Include="customer.h" />
+    <ClInclude Include="service.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="appointment.cpp" />
@@ -152,9 +153,8 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="report.cpp" />
     <ClCompile Include="report.h" />
+    <ClCompile Include="service.cpp" />
     <ClCompile Include="structures.h" />
-    <ClCompile Include="vehicle.cpp" />
-    <ClCompile Include="vehicle.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

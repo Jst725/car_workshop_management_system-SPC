@@ -1,0 +1,18 @@
+========================================================
+             WORKSHOP BAY JOB SHEET                     
+========================================================
+Date            : 2026-08-08
+Vehicle Plate   : BJE447
+Model           : honda civic
+Customer Name   : ming (01123456789)
+Assigned Tech   : done
+Current Status  : Ready for Pickup
+--------------------------------------------------------
+LOGGED PARTS / COMPONENTS:
+  1. 2x tayar - $80.00
+  2. colour - $700.00
+--------------------------------------------------------
+Parts Subtotal  : $780.00
+Labor Charge    : $40.00
+ESTIMATED TOTAL : $820.00
+========================================================

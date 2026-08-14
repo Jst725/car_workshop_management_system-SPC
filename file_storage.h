@@ -18,8 +18,8 @@ void loadInvoicesFromFile(std::vector<Invoice>& invoices);
 
 // ---- Combined helpers used by main.cpp ----
 void loadAllData(std::vector<Customer>& customers,
-                  std::vector<Appointment>& appointments,
-                  std::vector<Invoice>& invoices);
+    std::vector<Appointment>& appointments,
+    std::vector<Invoice>& invoices);
 void saveAllData(const std::vector<Customer>& customers,
-                  const std::vector<Appointment>& appointments,
-                  const std::vector<Invoice>& invoices);
+    const std::vector<Appointment>& appointments,
+    const std::vector<Invoice>& invoices);

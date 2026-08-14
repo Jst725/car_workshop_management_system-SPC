@@ -19,10 +19,12 @@ static vector<string> splitFields(const string& line) {
 }
 
 static double toDoubleSafe(const string& s) {
-    try { return stod(s); } catch (...) { return 0.0; }
+    try { return stod(s); }
+    catch (...) { return 0.0; }
 }
 static int toIntSafe(const string& s) {
-    try { return stoi(s); } catch (...) { return 0; }
+    try { return stoi(s); }
+    catch (...) { return 0; }
 }
 
 // ===================================================
@@ -41,7 +43,7 @@ void saveCustomersToFile(const vector<Customer>& customers) {
     }
     for (const auto& c : customers) {
         custFile << c.phone << "|" << c.name << "|" << c.membershipTier << "|"
-                  << c.totalPurchases << "\n";
+            << c.totalPurchases << "\n";
     }
     custFile.close();
 
@@ -53,10 +55,10 @@ void saveCustomersToFile(const vector<Customer>& customers) {
     for (const auto& c : customers) {
         for (const auto& v : c.vehicles) {
             vehFile << c.phone << "|" << v.licensePlate << "|" << v.brand << "|" << v.model << "|"
-                    << v.lastServiceDate << "|" << v.status << "|" << v.assignedTechnician << "|"
-                    << v.partsCost << "|" << v.laborCost << "|"
-                    << v.lastServiceDescription << "|" << v.lastPartsUsed << "|"
-                    << v.currentServiceCost << "\n";
+                << v.lastServiceDate << "|" << v.status << "|" << v.assignedTechnician << "|"
+                << v.partsCost << "|" << v.laborCost << "|"
+                << v.lastServiceDescription << "|" << v.lastPartsUsed << "|"
+                << v.currentServiceCost << "\n";
         }
     }
     vehFile.close();
@@ -90,7 +92,7 @@ void loadCustomersFromFile(vector<Customer>& customers) {
 
             int vehicleCount = toIntSafe(fields[4]);
             string vLine;
-            for (int i = 0; i < vehicleCount && getline(custFile, vLine); i++) {
+            for (int i = 0; i < vehicleCount&& getline(custFile, vLine); i++) {
                 vector<string> vf = splitFields(vLine);
                 Vehicle v;
                 if (vf.size() >= 7) {
@@ -120,7 +122,7 @@ void loadCustomersFromFile(vector<Customer>& customers) {
 
     if (legacyDetected) {
         cout << "[SYSTEM] Detected legacy customer file (with Customer ID) - migrated "
-             << customers.size() << " record(s) to the current phone-based format.\n";
+            << customers.size() << " record(s) to the current phone-based format.\n";
         saveCustomersToFile(customers); // rewrite both files in the current format
         return; // vehicles were already captured above from the embedded legacy data
     }
@@ -171,7 +173,7 @@ void loadCustomersFromFile(vector<Customer>& customers) {
     vehFile.close();
 
     cout << "[SYSTEM] Loaded " << customers.size() << " customer record(s) and "
-         << vehiclesLoaded << " vehicle record(s).\n";
+        << vehiclesLoaded << " vehicle record(s).\n";
 }
 
 // ===================================================
@@ -179,7 +181,10 @@ void loadCustomersFromFile(vector<Customer>& customers) {
 // (best-effort implementation based on the appointments.txt format that was
 //  already in the project - Appointment module owner should double check this)
 //
-// appointments.txt : appointmentId|customerId|licensePlate|date|time|serviceType|isActive(0/1)
+// appointments.txt : appointmentId|customerId|licensePlate|date|time|serviceType|totalFee|isActive(0/1)
+// NOTE: serviceType may itself contain '|' characters (multi-item bookings
+// joined with " | ", or free-text remarks), so on load we can't assume it's
+// exactly one field - see loadAppointmentsFromFile() below.
 // ===================================================
 
 void saveAppointmentsToFile(const vector<Appointment>& appointments) {
@@ -190,8 +195,9 @@ void saveAppointmentsToFile(const vector<Appointment>& appointments) {
     }
     for (const auto& a : appointments) {
         outFile << a.appointmentId << "|" << a.customerId << "|" << a.licensePlate << "|"
-                << a.date << "|" << a.time << "|" << a.serviceType << "|"
-                << (a.isActive ? 1 : 0) << "\n";
+            << a.date << "|" << a.time << "|" << a.serviceType << "|"
+            << a.totalFee << "|"
+            << (a.isActive ? 1 : 0) << "\n";
     }
     outFile.close();
 }
@@ -213,8 +219,34 @@ void loadAppointmentsFromFile(vector<Appointment>& appointments) {
         a.licensePlate = f[2];
         a.date = f[3];
         a.time = f[4];
-        a.serviceType = f[5];
-        a.isActive = (toIntSafe(f[6]) != 0);
+
+        // serviceType can itself contain '|' characters - bookAppointment()
+        // joins multiple selected services with " | ", and the free-text
+        // remark the user types can contain anything too. That means a line
+        // with a multi-item booking splits into MORE fields than the fixed
+        // ones, not exactly the expected count. Instead, treat everything
+        // between the 5 fixed leading fields and the 2 fixed trailing fields
+        // (totalFee, isActive) as serviceType, and always read those last
+        // two fields from the END of the line.
+        //
+        // Lines saved BEFORE totalFee existed only have 1 trailing field
+        // (isActive), so we detect that case too and default totalFee to 0.
+        bool hasTotalFee = (f.size() >= 8);
+
+        size_t serviceTypeEnd = hasTotalFee ? f.size() - 2 : f.size() - 1;
+        string serviceType = f[5];
+        for (size_t i = 6; i < serviceTypeEnd; i++) {
+            serviceType += "|" + f[i];
+        }
+        a.serviceType = serviceType;
+
+        if (hasTotalFee) {
+            a.totalFee = toDoubleSafe(f[f.size() - 2]);
+        }
+        else {
+            a.totalFee = 0.0;
+        }
+        a.isActive = (toIntSafe(f.back()) != 0);
         appointments.push_back(a);
     }
     inFile.close();
@@ -245,8 +277,8 @@ void loadAllData(vector<Customer>& customers, vector<Appointment>& appointments,
 }
 
 void saveAllData(const vector<Customer>& customers,
-                  const vector<Appointment>& appointments,
-                  const vector<Invoice>& invoices) {
+    const vector<Appointment>& appointments,
+    const vector<Invoice>& invoices) {
     saveCustomersToFile(customers);
     saveAppointmentsToFile(appointments);
     saveInvoicesToFile(invoices);

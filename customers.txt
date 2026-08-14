@@ -1,3 +1,1 @@
-01123456789|ming|Silver|0
-11122233344|Jessy|Standard|0
-11122223333|js|Regular|0
+01123456789|ming|Regular|0

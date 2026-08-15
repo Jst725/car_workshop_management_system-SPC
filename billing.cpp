@@ -9,6 +9,7 @@
 #include <cctype>
 #include <limits>
 #include <sstream>
+#include <ctime>
 
 // Helper: Converts any string to UPPERCASE for uniform lookup
 static std::string toUpper(std::string str) {
@@ -16,6 +17,15 @@ static std::string toUpper(std::string str) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     }
     return str;
+}
+
+// Helper: Get current system date in YYYY-MM-DD format automatically
+static std::string getCurrentDate() {
+    std::time_t t = std::time(nullptr);
+    std::tm* now = std::localtime(&t);
+    char buffer[11];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", now);
+    return std::string(buffer);
 }
 
 // Helper: Get tier discount rate based on system membership tiers
@@ -34,13 +44,10 @@ static void updateCustomerTier(Customer& customer) {
     else customer.membershipTier = "Regular";
 }
 
-// Helper: Generate a collision-safe Bill ID by scanning for the highest
-// existing numeric suffix instead of relying on vector size (which breaks
-// after any deletion, since size() no longer reflects the highest ID issued).
+// Helper: Generate a collision-safe Bill ID by scanning for the highest numeric suffix
 static std::string generateNextInvoiceId(const std::vector<Invoice>& invoices) {
     int maxNum = 0;
     for (const auto& inv : invoices) {
-        // Expect format "B00<N>" - pull the trailing digits robustly.
         std::string digits;
         for (char c : inv.invoiceId) {
             if (std::isdigit(static_cast<unsigned char>(c))) digits += c;
@@ -53,7 +60,7 @@ static std::string generateNextInvoiceId(const std::vector<Invoice>& invoices) {
     return "B00" + std::to_string(maxNum + 1);
 }
 
-// Helper: clear a bad std::cin state safely
+// Helper: Safely clear a bad std::cin state
 static void clearCinError() {
     std::cin.clear();
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -63,11 +70,11 @@ void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customer
     int choice = -1;
     do {
         std::cout << "\n========================================\n";
-        std::cout << "      BILL & PAYMENT MANAGEMENT         \n";
+        std::cout << "       BILL & PAYMENT MANAGEMENT        \n";
         std::cout << "========================================\n";
         std::cout << "1. Generate Invoice\n";
-        std::cout << "2. Edit Invoice (apply discount)\n";
-        std::cout << "3. Process Payment (print receipt)\n";
+        std::cout << "2. Edit Invoice (Apply/Change Discount)\n";
+        std::cout << "3. Process Payment (Print Receipt)\n";
         std::cout << "4. Payment History\n";
         std::cout << "0. Back to Main Menu\n";
         std::cout << "----------------------------------------\n";
@@ -101,63 +108,95 @@ void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customer
     } while (choice != 0);
 }
 
-// "2. Edit Invoice (apply discount)" from the menu diagram. Folds in what
-// used to be separate Bill Management (update/delete) and Payment
-// Management (update/delete payment) flows, branching on whether the
-// selected bill is already paid:
-//   - Unpaid bill  -> update date, recalculate/apply discount, or delete.
-//   - Paid bill    -> update payment method, or revert payment (undoes the
-//                     paid status and reverses the customer's spending and
-//                     membership tier - equivalent to the old "Delete
-//                     Payment" action).
 void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customers) {
     std::string bId;
     std::cout << "\nEnter Bill ID to edit: ";
     std::cin >> bId;
     std::string upId = toUpper(bId);
 
-    Invoice* target = nullptr;
-    for (auto& inv : invoices) {
-        if (toUpper(inv.invoiceId) == upId) target = &inv;
-    }
-    if (!target) {
+    auto it = std::find_if(invoices.begin(), invoices.end(), [&](const Invoice& inv) {
+        return toUpper(inv.invoiceId) == upId;
+        });
+
+    if (it == invoices.end()) {
         std::cout << "Bill not found.\n";
         return;
     }
 
-    if (!target->isPaid) {
-        std::cout << "\n1. Update Bill Date\n2. Apply/Recalculate Discount\n3. Delete Bill\n0. Back\nEnter choice: ";
+    Invoice& target = *it;
+
+    if (!target.isPaid) {
+        std::cout << "\n1. Update Bill Date\n2. Apply / Change Discount Rate\n3. Delete Bill\n0. Back\nEnter choice: ";
         int uc;
         if (!(std::cin >> uc)) { std::cout << "Invalid input!\n"; clearCinError(); return; }
 
         if (uc == 1) {
-            std::cout << "Enter new date: ";
-            std::cin >> target->date;
+            std::cout << "Enter new date (YYYY-MM-DD): ";
+            std::cin >> target.date;
             std::cout << "Bill date updated successfully.\n";
         }
         else if (uc == 2) {
-            double sub = target->partsCost + target->laborCost;
-            double discRate = 0.0;
-            for (const auto& c : customers) {
-                if (c.phone == target->customerId) {
-                    discRate = getTierDiscountRate(c.membershipTier);
+            std::cout << "\nChoose Discount Option:\n";
+            std::cout << "1. Apply Tier-Based Discount (Auto via Customer Membership)\n";
+            std::cout << "2. Apply Custom Percentage Discount\n";
+            std::cout << "3. Apply Custom Fixed Amount Discount (RM)\n";
+            std::cout << "0. Cancel\nEnter choice: ";
+
+            int dChoice;
+            if (!(std::cin >> dChoice)) { std::cout << "Invalid input!\n"; clearCinError(); return; }
+
+            double sub = target.partsCost + target.laborCost;
+            double discAmount = 0.0;
+            double discPercentageShown = 0.0;
+
+            if (dChoice == 1) {
+                double discRate = 0.0;
+                auto custIt = std::find_if(customers.begin(), customers.end(), [&](const Customer& c) {
+                    return c.phone == target.customerId;
+                    });
+                if (custIt != customers.end()) {
+                    discRate = getTierDiscountRate(custIt->membershipTier);
                 }
+                discAmount = sub * discRate;
+                discPercentageShown = discRate * 100.0;
             }
-            target->discountAmount = sub * discRate;
-            target->taxAmount = (sub - target->discountAmount) * 0.06;
-            target->totalAmount = (sub - target->discountAmount) + target->taxAmount;
+            else if (dChoice == 2) {
+                double pct = 0.0;
+                std::cout << "Enter discount percentage (e.g., 15 for 15%): ";
+                std::cin >> pct;
+                if (pct < 0 || pct > 100) {
+                    std::cout << "Invalid percentage range!\n";
+                    return;
+                }
+                discAmount = sub * (pct / 100.0);
+                discPercentageShown = pct;
+            }
+            else if (dChoice == 3) {
+                std::cout << "Enter fixed discount amount (RM): ";
+                std::cin >> discAmount;
+                if (discAmount < 0) discAmount = 0;
+                if (discAmount > sub) discAmount = sub;
+                discPercentageShown = (sub > 0) ? (discAmount / sub) * 100.0 : 0.0;
+            }
+            else {
+                std::cout << "Discount modification cancelled.\n";
+                return;
+            }
+
+            target.discountAmount = discAmount;
+            target.taxAmount = (sub - target.discountAmount) * 0.06;
+            target.totalAmount = (sub - target.discountAmount) + target.taxAmount;
+
             std::cout << std::fixed << std::setprecision(2);
-            std::cout << "Discount applied (" << (discRate * 100.0) << "% - current membership tier).\n";
-            std::cout << "New Total: RM" << target->totalAmount << "\n";
+            std::cout << "Discount applied (" << discPercentageShown << "% equivalent / RM" << target.discountAmount << " off).\n";
+            std::cout << "New Total (incl. 6% Tax): RM" << target.totalAmount << "\n";
         }
         else if (uc == 3) {
             std::cout << "Confirm Delete? (Y/N): ";
             char confirm;
             std::cin >> confirm;
-            if (confirm == 'Y' || confirm == 'y') {
-                std::string idToRemove = target->invoiceId;
-                invoices.erase(std::remove_if(invoices.begin(), invoices.end(),
-                    [&](const Invoice& inv) { return inv.invoiceId == idToRemove; }), invoices.end());
+            if (std::toupper(confirm) == 'Y') {
+                invoices.erase(it);
                 std::cout << "Bill deleted successfully.\n";
             }
             else {
@@ -173,22 +212,24 @@ void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customer
 
         if (pc == 1) {
             std::cout << "Enter new method (Cash/Card/E-Wallet): ";
-            std::cin >> target->paymentType;
+            std::cin >> target.paymentType;
             std::cout << "Payment method updated successfully.\n";
         }
         else if (pc == 2) {
             std::cout << "Confirm Revert Payment? (Y/N): ";
             char confirm;
             std::cin >> confirm;
-            if (confirm == 'Y' || confirm == 'y') {
-                target->isPaid = false;
-                target->paymentType = "Unpaid";
-                for (auto& c : customers) {
-                    if (c.phone == target->customerId) {
-                        c.totalPurchases -= target->totalAmount;
-                        if (c.totalPurchases < 0) c.totalPurchases = 0;
-                        updateCustomerTier(c);
-                    }
+            if (std::toupper(confirm) == 'Y') {
+                target.isPaid = false;
+                target.paymentType = "Unpaid";
+
+                auto custIt = std::find_if(customers.begin(), customers.end(), [&](Customer& c) {
+                    return c.phone == target.customerId;
+                    });
+                if (custIt != customers.end()) {
+                    custIt->totalPurchases -= target.totalAmount;
+                    if (custIt->totalPurchases < 0) custIt->totalPurchases = 0;
+                    updateCustomerTier(*custIt);
                 }
                 std::cout << "Payment Reverted -> Recalculated Customer Spending -> Recalculated Membership.\n";
             }
@@ -199,14 +240,11 @@ void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customer
     }
 }
 
-// "4. Payment History" from the menu diagram. Folds in what used to be
-// separate "View All Bills", "Search Bill", and "View Customer Billing
-// History" entries.
 void paymentHistory(const std::vector<Customer>& customers, const std::vector<Invoice>& invoices) {
     int choice = -1;
     do {
         std::cout << "\n========================================\n";
-        std::cout << "             PAYMENT HISTORY             \n";
+        std::cout << "             PAYMENT HISTORY            \n";
         std::cout << "========================================\n";
         std::cout << "1. View All Bills\n";
         std::cout << "2. Search Bills (Phone / Plate / Bill ID)\n";
@@ -227,12 +265,13 @@ void paymentHistory(const std::vector<Customer>& customers, const std::vector<In
             std::cout << "\n1. Search by Customer Phone\n2. Search by Plate Number\n3. Search by Bill ID\nEnter choice: ";
             int sChoice;
             if (!(std::cin >> sChoice)) { std::cout << "Invalid input!\n"; clearCinError(); continue; }
-            if (sChoice == 1 || sChoice == 2 || sChoice == 3) {
+            if (sChoice >= 1 && sChoice <= 3) {
                 std::string sInput;
                 std::cout << "Enter search keyword: ";
                 std::cin >> sInput;
                 std::string key = toUpper(sInput);
                 bool found = false;
+
                 for (const auto& inv : invoices) {
                     if ((sChoice == 1 && toUpper(inv.customerId) == key) ||
                         (sChoice == 2 && toUpper(inv.licensePlate) == key) ||
@@ -261,35 +300,30 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     std::cout << "\nEnter Customer Phone Number: ";
     std::cin >> phoneInput;
 
-    Customer* targetCustomer = nullptr;
-    for (auto& c : customers) {
-        if (c.phone == phoneInput) {
-            targetCustomer = &c;
-            break;
-        }
-    }
+    auto custIt = std::find_if(customers.begin(), customers.end(), [&](Customer& c) {
+        return c.phone == phoneInput;
+        });
 
-    if (!targetCustomer) {
+    if (custIt == customers.end()) {
         std::cout << "ERROR: Customer with phone [" << phoneInput << "] not found in system!\n";
         return;
     }
 
+    Customer& targetCustomer = *custIt;
+
     std::cout << "\n========================================\n";
-    std::cout << "      SELECT COMPLETED SERVICE          \n";
+    std::cout << "        SELECT COMPLETED SERVICE        \n";
     std::cout << "========================================\n";
-    std::cout << "Customer: " << targetCustomer->name << "\n\n";
+    std::cout << "Customer: " << targetCustomer.name << "\n\n";
 
     bool foundValidService = false;
     int indexCounter = 1;
-    // Map temporary reference table for choice selection
-    // NOTE: eligibility is "Ready for Pickup", not "Completed" - "Completed"
-    // is only ever set by resetVehicleServiceData() AFTER a bill has been
-    // paid, so gating invoice generation on "Completed" made it impossible
-    // to ever generate the first invoice for a vehicle at all.
-    for (auto& v : targetCustomer->vehicles) {
+    for (auto& v : targetCustomer.vehicles) {
         if (v.currentServiceCost > 0.0 && v.status == "Ready for Pickup") {
             foundValidService = true;
-            std::cout << indexCounter << ". S00" << indexCounter << " | " << v.licensePlate << " | " << (v.lastServiceDescription.empty() ? "General Service" : v.lastServiceDescription) << " | RM" << std::fixed << std::setprecision(2) << v.currentServiceCost << "\n";
+            std::cout << indexCounter << ". S00" << indexCounter << " | " << v.licensePlate
+                << " | " << (v.lastServiceDescription.empty() ? "General Service" : v.lastServiceDescription)
+                << " | RM" << std::fixed << std::setprecision(2) << v.currentServiceCost << "\n";
             indexCounter++;
         }
     }
@@ -307,10 +341,9 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
         return;
     }
 
-    // Select matched vehicle service vector slot
     Vehicle* targetVehicle = nullptr;
     int currentIdx = 1;
-    for (auto& v : targetCustomer->vehicles) {
+    for (auto& v : targetCustomer.vehicles) {
         if (v.currentServiceCost > 0.0 && v.status == "Ready for Pickup") {
             if (currentIdx == choiceIndex) {
                 targetVehicle = &v;
@@ -325,19 +358,17 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
         return;
     }
 
-    std::string plate = targetVehicle->licensePlate;
-
     // Check for existing active pending bill
     for (const auto& existingInv : invoices) {
-        if (existingInv.licensePlate == plate && !existingInv.isPaid) {
+        if (existingInv.licensePlate == targetVehicle->licensePlate && !existingInv.isPaid) {
             std::cout << "INFO: An active pending bill [" << existingInv.invoiceId << "] already exists for this vehicle plate!\n";
             return;
         }
     }
 
     Invoice inv;
-    inv.invoiceId = generateNextInvoiceId(invoices); // collision-safe, was: "B00" + size()+1
-    inv.customerId = targetCustomer->phone;
+    inv.invoiceId = generateNextInvoiceId(invoices);
+    inv.customerId = targetCustomer.phone;
     inv.licensePlate = targetVehicle->licensePlate;
     inv.date = targetVehicle->lastServiceDate;
     inv.partsCost = targetVehicle->partsCost;
@@ -364,7 +395,7 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     }
 
     double subtotal = inv.partsCost + inv.laborCost;
-    double discountRate = getTierDiscountRate(targetCustomer->membershipTier);
+    double discountRate = getTierDiscountRate(targetCustomer.membershipTier);
     inv.discountAmount = subtotal * discountRate;
 
     double taxableAmount = subtotal - inv.discountAmount;
@@ -381,8 +412,8 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     std::cout << "=========================================================================\n";
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Bill ID         : " << inv.invoiceId << "\n";
-    std::cout << "Customer        : " << targetCustomer->name << " (Phone: " << targetCustomer->phone << ")\n";
-    std::cout << "Membership Tier : " << targetCustomer->membershipTier << "\n";
+    std::cout << "Customer        : " << targetCustomer.name << " (Phone: " << targetCustomer.phone << ")\n";
+    std::cout << "Membership Tier : " << targetCustomer.membershipTier << "\n";
     std::cout << "-------------------------------------------------------------------------\n";
     std::cout << "Subtotal        : RM" << subtotal << "\n";
     std::cout << "Discount Rate   : " << (discountRate * 100.0) << "%\n";
@@ -398,30 +429,29 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     std::cout << "\nEnter Customer Phone Number: ";
     std::cin >> phoneInput;
 
-    Customer* targetCustomer = nullptr;
-    for (auto& c : customers) {
-        if (c.phone == phoneInput) {
-            targetCustomer = &c;
-            break;
-        }
-    }
+    auto custIt = std::find_if(customers.begin(), customers.end(), [&](Customer& c) {
+        return c.phone == phoneInput;
+        });
 
-    if (!targetCustomer) {
+    if (custIt == customers.end()) {
         std::cout << "ERROR: Customer with phone [" << phoneInput << "] not found!\n";
         return;
     }
 
+    Customer& targetCustomer = *custIt;
+
     std::cout << "\n========================================\n";
     std::cout << "               SELECT BILL              \n";
     std::cout << "========================================\n";
-    std::cout << "Customer: " << targetCustomer->name << "\n\n";
+    std::cout << "Customer: " << targetCustomer.name << "\n\n";
 
     bool hasUnpaidBills = false;
     int counter = 1;
     for (const auto& inv : invoices) {
-        if (inv.customerId == targetCustomer->phone && !inv.isPaid) {
+        if (inv.customerId == targetCustomer.phone && !inv.isPaid) {
             hasUnpaidBills = true;
-            std::cout << counter << ". " << inv.invoiceId << " | " << inv.licensePlate << " | RM" << std::fixed << std::setprecision(2) << inv.totalAmount << " | Unpaid\n";
+            std::cout << counter << ". " << inv.invoiceId << " | " << inv.licensePlate
+                << " | RM" << std::fixed << std::setprecision(2) << inv.totalAmount << " | Unpaid\n";
             counter++;
         }
     }
@@ -442,7 +472,7 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     Invoice* selectedInvoice = nullptr;
     int curr = 1;
     for (auto& inv : invoices) {
-        if (inv.customerId == targetCustomer->phone && !inv.isPaid) {
+        if (inv.customerId == targetCustomer.phone && !inv.isPaid) {
             if (curr == choice) {
                 selectedInvoice = &inv;
                 break;
@@ -457,7 +487,7 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     }
 
     Vehicle* targetVehicle = nullptr;
-    for (auto& v : targetCustomer->vehicles) {
+    for (auto& v : targetCustomer.vehicles) {
         if (v.licensePlate == selectedInvoice->licensePlate) {
             targetVehicle = &v;
             break;
@@ -465,21 +495,9 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     }
 
     std::cout << "\n=======================================================\n";
-    std::cout << "                 PAYMENT PROCESSING                    \n";
+    std::cout << "                   PAYMENT PROCESSING                  \n";
     std::cout << "=======================================================\n";
     std::cout << "Total Bill      : RM" << std::fixed << std::setprecision(2) << selectedInvoice->totalAmount << "\n";
-
-    double amountPaid = 0.0;
-    while (true) {
-        std::cout << "Amount Paid     : RM";
-        if (std::cin >> amountPaid && amountPaid >= 0.0) break;
-        std::cout << "Invalid amount. Please enter a non-negative number.\n";
-        clearCinError();
-    }
-
-    std::string payDate;
-    std::cout << "Payment Date    : ";
-    std::cin >> payDate;
 
     int payChoice = 1;
     while (true) {
@@ -491,11 +509,38 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
         clearCinError();
     }
 
-    switch (payChoice) {
-    case 1: selectedInvoice->paymentType = "Cash"; break;
-    case 2: selectedInvoice->paymentType = "Card"; break;
-    case 3: selectedInvoice->paymentType = "E-Wallet"; break;
+    double amountPaid = 0.0;
+    double changeGiven = 0.0;
+
+    if (payChoice == 1) {
+        selectedInvoice->paymentType = "Cash";
+        while (true) {
+            std::cout << "Cash Tendered (Amount Given by Customer) : RM";
+            if (std::cin >> amountPaid && amountPaid >= selectedInvoice->totalAmount) {
+                changeGiven = amountPaid - selectedInvoice->totalAmount;
+                break;
+            }
+            if (amountPaid >= 0.0 && amountPaid < selectedInvoice->totalAmount) {
+                std::cout << "Insufficient cash given! Amount must be at least RM" << selectedInvoice->totalAmount << ".\n";
+            }
+            else {
+                std::cout << "Invalid amount. Please enter a valid number.\n";
+                clearCinError();
+            }
+        }
     }
+    else if (payChoice == 2) {
+        selectedInvoice->paymentType = "Card";
+        amountPaid = selectedInvoice->totalAmount;
+    }
+    else {
+        selectedInvoice->paymentType = "E-Wallet";
+        amountPaid = selectedInvoice->totalAmount;
+    }
+
+    // Auto set current day as payment date
+    std::string payDate = getCurrentDate();
+    std::cout << "Payment Date    : " << payDate << " (Auto-set to current date)\n";
 
     double balance = selectedInvoice->totalAmount - amountPaid;
     if (balance < 0) balance = 0.0;
@@ -504,22 +549,13 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
 
     if (fullySettled) {
         selectedInvoice->isPaid = true;
-        targetCustomer->totalPurchases += selectedInvoice->totalAmount;
-        updateCustomerTier(*targetCustomer);
+        targetCustomer.totalPurchases += selectedInvoice->totalAmount;
+        updateCustomerTier(targetCustomer);
 
         if (targetVehicle) {
             resetVehicleServiceData(*targetVehicle);
         }
 
-        // Close EVERY appointment that's currently active for this vehicle.
-        // The invoice bills the vehicle's ENTIRE accrued laborCost/partsCost
-        // (see generateInvoice above - it snapshots v.laborCost/v.partsCost
-        // as one lump sum, which is the SUM of every active appointment's
-        // fee added to it). Paying that invoice off settles all of them, not
-        // just whichever happened to be oldest - closing only one used to
-        // leave any other active appointment dangling: it stayed "Active"
-        // even though resetVehicleServiceData() above had already wiped the
-        // cost it was billed for down to $0.
         for (auto& app : appointments) {
             if (app.licensePlate == selectedInvoice->licensePlate && app.isActive) {
                 app.isActive = false;
@@ -530,17 +566,22 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     saveAllData(customers, appointments, invoices);
 
     std::cout << "\n=======================================================\n";
-    std::cout << "                 OFFICIAL PAYMENT RECEIPT              \n";
+    std::cout << "               OFFICIAL PAYMENT RECEIPT                \n";
     std::cout << "=======================================================\n";
     std::cout << " Bill ID      : " << selectedInvoice->invoiceId << "\n";
-    std::cout << " Customer     : " << targetCustomer->name << " (Phone: " << targetCustomer->phone << ")\n";
+    std::cout << " Customer     : " << targetCustomer.name << " (Phone: " << targetCustomer.phone << ")\n";
     std::cout << " Plate        : " << selectedInvoice->licensePlate << "\n";
     std::cout << " Payment Date : " << payDate << "\n";
     std::cout << " Method       : " << selectedInvoice->paymentType << "\n";
     std::cout << "-------------------------------------------------------\n";
     std::cout << " Total Bill   : RM" << std::fixed << std::setprecision(2) << selectedInvoice->totalAmount << "\n";
-    std::cout << " Amount Paid  : RM" << amountPaid << "\n";
-    std::cout << " Balance      : RM" << balance << "\n";
+    if (selectedInvoice->paymentType == "Cash") {
+        std::cout << " Cash Given   : RM" << amountPaid << "\n";
+        std::cout << " Change Due   : RM" << changeGiven << "\n";
+    }
+    else {
+        std::cout << " Amount Paid  : RM" << amountPaid << "\n";
+    }
     std::cout << " Status       : " << (fullySettled ? "PAID IN FULL" : "PARTIAL - Balance remaining") << "\n";
     std::cout << "=======================================================\n";
 }
@@ -551,16 +592,17 @@ void displayInvoices(const std::vector<Invoice>& invoices) {
         return;
     }
 
-    std::cout << "\n---------------------------------------------------------------------------------------------------\n";
+    std::cout << "\n------------------------------------------------------------------------------------------------------------------\n";
     std::cout << std::left << std::setw(10) << "Bill ID"
         << std::setw(10) << "Cust ID"
         << std::setw(12) << "Plate"
         << std::setw(12) << "Subtotal"
         << std::setw(12) << "Discount"
+        << std::setw(12) << "Tax(6%)"
         << std::setw(12) << "Total(RM)"
         << std::setw(12) << "Method"
         << "Status\n";
-    std::cout << "---------------------------------------------------------------------------------------------------\n";
+    std::cout << "------------------------------------------------------------------------------------------------------------------\n";
 
     for (const auto& inv : invoices) {
         double sub = inv.partsCost + inv.laborCost;
@@ -569,6 +611,7 @@ void displayInvoices(const std::vector<Invoice>& invoices) {
             << std::setw(12) << inv.licensePlate
             << std::setw(12) << std::fixed << std::setprecision(2) << sub
             << std::setw(12) << inv.discountAmount
+            << std::setw(12) << inv.taxAmount
             << std::setw(12) << inv.totalAmount
             << std::setw(12) << inv.paymentType
             << (inv.isPaid ? "Paid" : "Unpaid") << "\n";
@@ -610,7 +653,7 @@ void viewCustomerHistory(const std::vector<Customer>& customers, const std::vect
     }
 
     std::cout << "\n=======================================================\n";
-    std::cout << "               CUSTOMER BILLING HISTORY                \n";
+    std::cout << "                CUSTOMER BILLING HISTORY               \n";
     std::cout << "=======================================================\n";
     std::cout << "Name           : " << foundCustomer->name << "\n";
     std::cout << "Phone          : " << foundCustomer->phone << "\n";

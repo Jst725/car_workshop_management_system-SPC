@@ -1,7 +1,7 @@
-APP0001|01123456789|BJE427|2026-09-09|09:09|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] {Total Service Fee: $130.00}|1
-APP0002|01123456789|HAH339|2026-09-10|09:10|(1) [Car Problems / Repair Issues] Engine Problems -> Engine Cannot Start |0
-APP0003|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0
-APP0004|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0
-APP0005|01123456789|BJE427|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] {Total Service Fee: $130.00}|0
-APP0006|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0
-APP0007|01123456789|BJE427|2026-08-17|12:00|(1) [Car Problem / Repair Request] Engine & Driveability Issues -> Check Engine Light Diagnostic [$80.00] {Total Service Fee: $80.00}|1
+APP0001|01123456789|BJE427|2026-09-09|09:09|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] {Total Service Fee: $130.00}|0|1
+APP0002|01123456789|HAH339|2026-09-10|09:10|(1) [Car Problems / Repair Issues] Engine Problems -> Engine Cannot Start |0|0
+APP0003|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0|0
+APP0004|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0|0
+APP0005|01123456789|BJE427|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] {Total Service Fee: $130.00}|0|0
+APP0006|01123456789|HAH339|2026-09-10|09:10|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] |0|0
+APP0007|01123456789|BJE427|2026-08-17|12:00|(1) [Car Problem / Repair Request] Engine & Driveability Issues -> Check Engine Light Diagnostic [$80.00] {Total Service Fee: $80.00}|0|1

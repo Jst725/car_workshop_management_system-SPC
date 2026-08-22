@@ -103,7 +103,8 @@ void customerMenu(vector<Customer>& customers) {
         cout << "2. Add Vehicle to Customer\n";
         cout << "3. View All Customers\n";
         cout << "4. Search Customer (by Phone Number)\n";
-        cout << "5. Delete Customer\n";
+        cout << "5. Edit Customer (by Phone Number)\n";
+        cout << "6. Delete Customer\n";
         cout << "0. Return to Main Menu\n";
         cout << "----------------------------------------\n";
         cout << "Enter choice: ";
@@ -120,7 +121,8 @@ void customerMenu(vector<Customer>& customers) {
         case 2: addVehicleToCustomer(customers); saveCustomersToFile(customers); break;
         case 3: viewCustomers(customers); break;
         case 4: searchCustomer(customers); break;
-        case 5: deleteCustomer(customers); saveCustomersToFile(customers); break;
+        case 5: editCustomer(customers); saveCustomersToFile(customers); break;
+        case 6: deleteCustomer(customers); saveCustomersToFile(customers); break;
         case 0: cout << "Returning to Main Menu...\n"; break;
         default: cout << "Invalid choice!\n";
         }
@@ -340,6 +342,97 @@ void searchCustomer(const vector<Customer>& customers) {
         }
     }
     cout << "[ERROR] Customer not found.\n";
+}
+
+// ===================================================
+// EDIT CUSTOMER (by phone number)
+// Only non-vehicle fields can be changed here (Name, Membership Tier).
+// Phone number is NOT editable - it's the key used to look up this customer
+// everywhere else in the system (appointments, invoices), so changing it here
+// would silently break those links elsewhere.
+// ===================================================
+
+void editCustomer(vector<Customer>& customers) {
+    cout << "\n>>> EDIT CUSTOMER <<<\n";
+    string phone;
+    cout << "Enter Phone Number of the customer to edit (or 0 to Return to Main Menu): ";
+    cin >> phone;
+    if (phone == "0") return;
+
+    Customer* target = nullptr;
+    for (auto& c : customers) {
+        if (c.phone == phone) { target = &c; break; }
+    }
+
+    if (!target) {
+        cout << "[ERROR] Customer not found.\n";
+        return;
+    }
+
+    int choice = -1;
+    do {
+        cout << "\n----------------------------------------\n";
+        cout << "Editing: " << target->name << " (" << target->phone << ")\n";
+        cout << "----------------------------------------\n";
+        cout << "Name          : " << target->name << "\n";
+        cout << "Phone         : " << target->phone << " (cannot be changed - used to link records)\n";
+        cout << "Tier          : " << target->membershipTier << "\n";
+        cout << "Total Spent   : $" << fixed << setprecision(2) << target->totalPurchases << "\n";
+        cout << "----------------------------------------\n";
+        cout << "1. Edit Name\n";
+        cout << "2. Edit Membership Tier\n";
+        cout << "0. Done\n";
+        cout << "Enter choice: ";
+
+        if (!(cin >> choice)) {
+            cout << "Invalid input!\n";
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+
+        switch (choice) {
+        case 1: {
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            string newName;
+            while (true) {
+                cout << "Enter New Name (Letters Only): ";
+                getline(cin, newName);
+                if (isValidName(newName)) break;
+                cout << "[ERROR] Invalid name! Letters and spaces only.\n";
+            }
+            target->name = newName;
+            cout << "[SUCCESS] Name updated.\n";
+            break;
+        }
+        case 2: {
+            int tierChoice = 0;
+            while (true) {
+                cout << "Select New Membership Tier:\n";
+                cout << "1. Regular\n2. Silver\n3. Gold\n4. VIP\n";
+                cout << "Choice: ";
+                if (!(cin >> tierChoice) || tierChoice < 1 || tierChoice > 4) {
+                    cout << "[ERROR] Invalid choice!\n";
+                    cin.clear();
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                    continue;
+                }
+                break;
+            }
+            if (tierChoice == 1) target->membershipTier = "Regular";
+            else if (tierChoice == 2) target->membershipTier = "Silver";
+            else if (tierChoice == 3) target->membershipTier = "Gold";
+            else target->membershipTier = "VIP";
+            cout << "[SUCCESS] Membership tier updated.\n";
+            break;
+        }
+        case 0:
+            cout << "Finished editing.\n";
+            break;
+        default:
+            cout << "Invalid choice!\n";
+        }
+    } while (choice != 0);
 }
 
 // ===================================================

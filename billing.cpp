@@ -22,9 +22,16 @@ static std::string toUpper(std::string str) {
 // Helper: Get current system date in YYYY-MM-DD format automatically
 static std::string getCurrentDate() {
     std::time_t t = std::time(nullptr);
-    std::tm* now = std::localtime(&t);
+    std::tm now{};
+
+#ifdef _WIN32
+    localtime_s(&now, &t);
+#else
+    now = *std::localtime(&t);
+#endif
+
     char buffer[11];
-    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", now);
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", &now);
     return std::string(buffer);
 }
 

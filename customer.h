@@ -13,6 +13,7 @@ void registerCustomer(std::vector<Customer>& customers);
 void addVehicleToCustomer(std::vector<Customer>& customers);
 void viewCustomers(const std::vector<Customer>& customers);
 void searchCustomer(const std::vector<Customer>& customers);
+void editCustomer(std::vector<Customer>& customers);
 void deleteCustomer(std::vector<Customer>& customers);
 
 // Validation helpers

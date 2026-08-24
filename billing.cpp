@@ -11,7 +11,7 @@
 #include <sstream>
 #include <ctime>
 
-// Helper: Converts any string to UPPERCASE for uniform lookup
+
 static std::string toUpper(std::string str) {
     for (char& c : str) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
@@ -19,7 +19,7 @@ static std::string toUpper(std::string str) {
     return str;
 }
 
-// Helper: Get current system date in YYYY-MM-DD format automatically
+//Get current system date in YYYY-MM-DD format automatically
 static std::string getCurrentDate() {
     std::time_t t = std::time(nullptr);
     std::tm now{};
@@ -35,7 +35,7 @@ static std::string getCurrentDate() {
     return std::string(buffer);
 }
 
-// Helper: Get tier discount rate based on system membership tiers
+//Get tier discount rate based on system membership tiers
 static double getTierDiscountRate(const std::string& tier) {
     if (tier == "Silver") return 0.05;  // 5% discount
     if (tier == "Gold")   return 0.10;  // 10% discount
@@ -51,7 +51,7 @@ static void updateCustomerTier(Customer& customer) {
     else customer.membershipTier = "Regular";
 }
 
-// Helper: Generate a collision-safe Bill ID by scanning for the highest numeric suffix
+// Generate a collision-safe Bill ID by scanning for the highest numeric suffix
 static std::string generateNextInvoiceId(const std::vector<Invoice>& invoices) {
     int maxNum = 0;
     for (const auto& inv : invoices) {
@@ -67,7 +67,7 @@ static std::string generateNextInvoiceId(const std::vector<Invoice>& invoices) {
     return "B00" + std::to_string(maxNum + 1);
 }
 
-// Helper: Safely clear a bad std::cin state
+// Safely clear a bad std::cin state
 static void clearCinError() {
     std::cin.clear();
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');

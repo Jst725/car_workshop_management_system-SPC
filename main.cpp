@@ -1,5 +1,7 @@
 #include <iostream>
 #include <vector>
+#include <thread>
+#include <chrono>
 #include "structures.h"
 #include "file_storage.h"
 #include "customer.h"
@@ -8,7 +10,34 @@
 #include "billing.h"
 #include "report.h"
 
+// Displays a pure C++ terminal logo splash screen (No external libraries required)
+static void showLogoWindow() {
+    std::cout << "\n";
+    std::cout << "====================================================================================\n";
+    std::cout << "                                                                                    \n";
+    std::cout << "    #####   ##   ##    ##   ##   #####  #####   ##  ##   ####   ##  ##   #####    \n";
+    std::cout << "   ##   ##  ##   ##    ##   ##  ##  ##  ##  ##  ## ##   ##  ##  ##  ##  ##  ##    \n";
+    std::cout << "   ##       ## # ##    ## # ##  ##  ##  #####   ####    ######  ######  #####     \n";
+    std::cout << "   ##   ##  #######    #######  ##  ##  ##  ##  ## ##   ##  ##  ##  ##  ##        \n";
+    std::cout << "    #####    ## ##      ## ##    #####  ##  ##  ##  ##  ##  ##  ##  ##  ##        \n";
+    std::cout << "                                                                                    \n";
+    std::cout << "====================================================================================\n";
+    std::cout << "                   ______                                                           \n";
+    std::cout << "                  /|_||_`.__                                                        \n";
+    std::cout << "                 (   _    _ _\\                                                      \n";
+    std::cout << "                 =`-(_)--(_)-'  [ CAR WORKSHOP MANAGEMENT SYSTEM ]                  \n";
+    std::cout << "====================================================================================\n";
+    std::cout << "                             Starting Application...                                \n";
+    std::cout << "====================================================================================\n\n";
+
+    // Pause for 2.5 seconds to let the splash screen display
+    std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+}
+
 int main() {
+    // Show splash screen banner on startup
+    showLogoWindow();
+
     std::vector<Customer> customers;
     std::vector<Appointment> appointments;
     std::vector<Invoice> invoices;

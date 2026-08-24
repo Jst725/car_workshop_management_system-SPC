@@ -7,8 +7,9 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <regex>
+#include <vector>
 
-// Helper: Converts a string to UPPERCASE
 static std::string toUpper(std::string str) {
     for (char& c : str) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
@@ -16,30 +17,6 @@ static std::string toUpper(std::string str) {
     return str;
 }
 
-// Helper: Checks if a vehicle has an ACTIVE appointment booking (Case-Insensitive)
-static bool hasActiveAppointment(const std::string& plate, const std::vector<Appointment>& appointments) {
-    std::string searchPlate = toUpper(plate);
-    for (const auto& a : appointments) {
-        if (a.isActive && toUpper(a.licensePlate) == searchPlate) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Helper: Count active appointments for a vehicle
-static int countActiveAppointments(const std::string& plate, const std::vector<Appointment>& appointments) {
-    std::string searchPlate = toUpper(plate);
-    int count = 0;
-    for (const auto& a : appointments) {
-        if (a.isActive && toUpper(a.licensePlate) == searchPlate) {
-            count++;
-        }
-    }
-    return count;
-}
-
-// Helper: Generates today's date in YYYY-MM-DD format
 static std::string getTodayDate() {
     time_t now = time(nullptr);
     tm local;
@@ -55,7 +32,112 @@ static std::string getTodayDate() {
     return ss.str();
 }
 
-// Forward declaration of internal menu features
+static bool hasActiveAppointment(const std::string& plate, const std::vector<Appointment>& appointments) {
+    std::string searchPlate = toUpper(plate);
+    for (const auto& a : appointments) {
+        if (a.isActive && toUpper(a.licensePlate) == searchPlate) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Parses raw appointment strings into individual short service names and prices
+static std::vector<std::pair<std::string, double>> parseServiceItems(const std::string& input) {
+    std::vector<std::pair<std::string, double>> items;
+
+    // Splits multi-item string by '|' delimiter
+    std::stringstream ss(input);
+    std::string segment;
+
+    while (std::getline(ss, segment, '|')) {
+        double price = 0.0;
+
+        // 1. Extract price enclosed in [$...] or [RM...] before stripping brackets
+        std::smatch priceMatch;
+        std::regex priceRegex(R"(\[\s*[\$|RM]*\s*([\d\.]+)\s*\])");
+        if (std::regex_search(segment, priceMatch, priceRegex)) {
+            price = std::stod(priceMatch[1].str());
+            segment = std::regex_replace(segment, priceRegex, "");
+        }
+
+        // 2. Remove category headers like [Scheduled Maintenance / Servicing]
+        std::string cleaned = std::regex_replace(segment, std::regex(R"(\[.*?\])"), "");
+
+        // 3. Extract description after '->' if present
+        size_t arrowPos = cleaned.find("->");
+        if (arrowPos != std::string::npos) {
+            cleaned = cleaned.substr(arrowPos + 2);
+        }
+
+        // 4. Clean sequence numbers like (1), (2) and summary trailers
+        cleaned = std::regex_replace(cleaned, std::regex(R"(\(\d+\))"), "");
+        cleaned = std::regex_replace(cleaned, std::regex(R"(\{.*?\})"), "");
+        cleaned = std::regex_replace(cleaned, std::regex(R"(\(RM\s*[\d\.]+\))"), "");
+
+        // 5. Trim whitespace
+        size_t start = cleaned.find_first_not_of(" \t\n\r");
+        size_t end = cleaned.find_last_not_of(" \t\n\r");
+        if (start != std::string::npos && end != std::string::npos) {
+            cleaned = cleaned.substr(start, end - start + 1);
+            items.push_back({ cleaned, price });
+        }
+    }
+
+    return items;
+}
+
+static void syncAppointmentToPartsCost(Vehicle& vehicle, const std::vector<Appointment>& appointments) {
+    std::string today = getTodayDate();
+
+    // Explicitly reset labor cost to 0.00
+    vehicle.laborCost = 0.0;
+
+    for (const auto& app : appointments) {
+        if (app.isActive && toUpper(app.licensePlate) == toUpper(vehicle.licensePlate)) {
+
+            // Parse multi-item string into short line items
+            auto parsedItems = parseServiceItems(app.serviceType);
+
+            for (size_t idx = 0; idx < parsedItems.size(); ++idx) {
+                std::string itemPartId = "APT-ITEM-" + app.appointmentId + "-" + std::to_string(idx);
+
+                bool itemExists = false;
+                for (const auto& p : vehicle.parts) {
+                    if (p.partId == itemPartId) {
+                        itemExists = true;
+                        break;
+                    }
+                }
+
+                if (!itemExists) {
+                    PartItem part;
+                    part.partId = itemPartId;
+                    part.name = parsedItems[idx].first;   // Short description
+                    part.price = parsedItems[idx].second; // Fee or RM 0.00 if unpriced
+                    vehicle.parts.push_back(part);
+                }
+            }
+        }
+    }
+
+    // Recalculate parts subtotal and update active service logs
+    vehicle.partsCost = 0.0;
+    vehicle.activeServiceLogs.clear();
+    for (const auto& item : vehicle.parts) {
+        vehicle.partsCost += item.price;
+
+        ServiceLog log;
+        log.date = today;
+        log.description = item.name;
+        log.cost = item.price;
+        vehicle.activeServiceLogs.push_back(log);
+    }
+
+    // Accrued total formula
+    vehicle.currentServiceCost = vehicle.partsCost + vehicle.laborCost;
+}
+
 void searchVehicleHistory(const std::vector<Customer>& customers);
 void updateAllVehicleStatuses(std::vector<Customer>& customers, const std::vector<Appointment>& appointments);
 
@@ -125,18 +207,9 @@ void updateVehicleStatus(std::vector<Customer>& customers, const std::vector<App
 
     plate = toUpper(plate);
 
-    // Check if vehicle has ANY active appointments
     if (!hasActiveAppointment(plate, appointments)) {
         std::cout << "ERROR: Vehicle [" << plate << "] has no active appointment booking!\n";
-        std::cout << "Only vehicles with active appointments can be managed.\n";
         return;
-    }
-
-    // Count active appointments for this vehicle
-    int activeCount = countActiveAppointments(plate, appointments);
-    if (activeCount > 1) {
-        std::cout << "NOTE: Vehicle [" << plate << "] has " << activeCount << " active appointments.\n";
-        std::cout << "Status update will apply to the vehicle record.\n";
     }
 
     for (auto& c : customers) {
@@ -178,12 +251,6 @@ void updateVehicleStatus(std::vector<Customer>& customers, const std::vector<App
     std::cout << "Vehicle plate not found in database.\n";
 }
 
-double calculateServicePrice(const std::vector<double>& parts, double labor) {
-    double total = labor;
-    for (double p : parts) total += p;
-    return total;
-}
-
 void updateService(std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
     std::string plate;
     std::cout << "\nEnter Vehicle License Plate (or 0 to Return): ";
@@ -200,23 +267,26 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
     for (auto& c : customers) {
         for (auto& v : c.vehicles) {
             if (toUpper(v.licensePlate) == plate) {
+
+                syncAppointmentToPartsCost(v, appointments);
+
                 int choice = -1;
                 do {
                     std::cout << "\n========================================\n";
                     std::cout << "   EDIT SERVICE & PRICING: " << v.licensePlate << "\n";
                     std::cout << "========================================\n";
-                    std::cout << "1. Labor Charge (Current: $" << std::fixed << std::setprecision(2) << v.laborCost << ")\n";
-                    std::cout << "2. Add New Part / Component\n";
-                    std::cout << "--- Existing Replaced Parts ---\n";
+                    std::cout << "1. Add Additional Part / Component\n";
+                    std::cout << "2. Labor Charge (Current: RM " << std::fixed << std::setprecision(2) << v.laborCost << ")\n";
+                    std::cout << "--- Logged Appointment Services & Parts (Parts Subtotal: RM " << std::fixed << std::setprecision(2) << v.partsCost << ") ---\n";
 
                     int optionNum = 3;
                     if (v.parts.empty()) {
-                        std::cout << "   (No parts logged)\n";
+                        std::cout << "   (No parts or appointment services logged)\n";
                     }
                     else {
                         for (size_t i = 0; i < v.parts.size(); ++i) {
                             std::cout << optionNum++ << ". " << v.parts[i].name
-                                << " ($" << std::fixed << std::setprecision(2) << v.parts[i].price << ")\n";
+                                << " (RM " << std::fixed << std::setprecision(2) << v.parts[i].price << ")\n";
                         }
                     }
                     std::cout << "0. Save & Exit\n";
@@ -234,18 +304,6 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                         break;
                     }
                     else if (choice == 1) {
-                        double newLabor = 0.0;
-                        while (true) {
-                            std::cout << "Enter New Labor Charge: $";
-                            if (std::cin >> newLabor && newLabor >= 0.0) break;
-                            std::cout << "Invalid charge! Enter a valid positive amount.\n";
-                            std::cin.clear();
-                            std::cin.ignore(1000, '\n');
-                        }
-                        v.laborCost = newLabor;
-                        std::cout << "Labor charge updated to $" << std::fixed << std::setprecision(2) << v.laborCost << "\n";
-                    }
-                    else if (choice == 2) {
                         PartItem p;
                         int qty = 1;
                         double unitPrice = 0.0;
@@ -257,15 +315,15 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                         while (true) {
                             std::cout << "Enter Quantity: ";
                             if (std::cin >> qty && qty > 0) break;
-                            std::cout << "Invalid quantity! Enter a positive integer.\n";
+                            std::cout << "Invalid quantity!\n";
                             std::cin.clear();
                             std::cin.ignore(1000, '\n');
                         }
 
                         while (true) {
-                            std::cout << "Enter Unit Price for " << p.name << ": $";
+                            std::cout << "Enter Unit Price for " << p.name << ": RM ";
                             if (std::cin >> unitPrice && unitPrice >= 0.0) break;
-                            std::cout << "Invalid price! Enter a valid positive amount.\n";
+                            std::cout << "Invalid price!\n";
                             std::cin.clear();
                             std::cin.ignore(1000, '\n');
                         }
@@ -275,50 +333,47 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                         }
                         p.price = qty * unitPrice;
                         v.parts.push_back(p);
-
-                        std::cout << "Added " << p.name << " (Total: $" << std::fixed << std::setprecision(2) << p.price << ") successfully!\n";
+                    }
+                    else if (choice == 2) {
+                        double newLabor = 0.0;
+                        while (true) {
+                            std::cout << "Enter Labor Charge: RM ";
+                            if (std::cin >> newLabor && newLabor >= 0.0) break;
+                            std::cout << "Invalid labor charge!\n";
+                            std::cin.clear();
+                            std::cin.ignore(1000, '\n');
+                        }
+                        v.laborCost = newLabor;
                     }
                     else if (choice >= 3 && choice < 3 + static_cast<int>(v.parts.size())) {
                         int partIdx = choice - 3;
-                        std::cout << "\n--- SELECTED PART: " << v.parts[partIdx].name
-                            << " ($" << std::fixed << std::setprecision(2) << v.parts[partIdx].price << ") ---\n";
-                        std::cout << "1. Change Price Only\n";
-                        std::cout << "2. Change Part Name\n";
-                        std::cout << "3. Remove This Part\n";
-                        std::cout << "0. Cancel\n";
+                        std::cout << "\n--- EDIT ITEM: " << v.parts[partIdx].name << " ---\n";
+                        std::cout << "1. Edit Price\n";
+                        std::cout << "2. Edit Description\n";
+                        std::cout << "3. Remove Item\n";
                         std::cout << "Choice: ";
 
                         int subChoice = 0;
                         if (std::cin >> subChoice) {
                             if (subChoice == 1) {
                                 double newPrice = 0.0;
-                                while (true) {
-                                    std::cout << "Enter New Total Price for " << v.parts[partIdx].name << ": $";
-                                    if (std::cin >> newPrice && newPrice >= 0.0) break;
-                                    std::cout << "Invalid price!\n";
-                                    std::cin.clear();
-                                    std::cin.ignore(1000, '\n');
+                                std::cout << "Enter New Price: RM ";
+                                if (std::cin >> newPrice && newPrice >= 0.0) {
+                                    v.parts[partIdx].price = newPrice;
                                 }
-                                v.parts[partIdx].price = newPrice;
-                                std::cout << "Price updated successfully!\n";
                             }
                             else if (subChoice == 2) {
-                                std::cout << "Enter New Name for " << v.parts[partIdx].name << ": ";
+                                std::cout << "Enter New Name: ";
                                 std::cin.ignore(1000, '\n');
                                 std::getline(std::cin, v.parts[partIdx].name);
-                                std::cout << "Name updated successfully!\n";
                             }
                             else if (subChoice == 3) {
-                                std::cout << "Removed part: " << v.parts[partIdx].name << "\n";
                                 v.parts.erase(v.parts.begin() + partIdx);
                             }
                         }
                     }
-                    else {
-                        std::cout << "Invalid choice selection!\n";
-                    }
 
-                    // Recalculate Totals & Active Service Logs
+                    // Recalculate Totals
                     v.partsCost = 0.0;
                     v.activeServiceLogs.clear();
                     for (const auto& item : v.parts) {
@@ -337,9 +392,9 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                 std::cout << "\n========================================\n";
                 std::cout << "   FINAL UPDATED TOTALS FOR " << v.licensePlate << "\n";
                 std::cout << "========================================\n";
-                std::cout << "Parts Subtotal : $" << std::fixed << std::setprecision(2) << v.partsCost << "\n";
-                std::cout << "Labor Subtotal : $" << v.laborCost << "\n";
-                std::cout << "TOTAL COST     : $" << v.currentServiceCost << "\n";
+                std::cout << "Parts Subtotal (Appointment Included) : RM " << std::fixed << std::setprecision(2) << v.partsCost << "\n";
+                std::cout << "Labor Subtotal                         : RM " << v.laborCost << "\n";
+                std::cout << "TOTAL COST                             : RM " << v.currentServiceCost << "\n";
                 return;
             }
         }
@@ -371,21 +426,21 @@ void viewServiceBreakdown(const std::vector<Customer>& customers, const std::vec
                 std::cout << "Technician    : " << v.assignedTechnician << "\n";
                 std::cout << "Status        : " << v.status << "\n";
                 std::cout << "----------------------------------------\n";
-                std::cout << "Replaced Parts Log:\n";
+                std::cout << "Appointment Items & Parts Log:\n";
                 if (v.parts.empty()) {
-                    std::cout << "  (No parts logged)\n";
+                    std::cout << "  (No items logged)\n";
                 }
                 else {
                     for (size_t i = 0; i < v.parts.size(); ++i) {
                         std::cout << "  " << (i + 1) << ". " << v.parts[i].name
-                            << " ($" << std::fixed << std::setprecision(2) << v.parts[i].price << ")\n";
+                            << " (RM " << std::fixed << std::setprecision(2) << v.parts[i].price << ")\n";
                     }
                 }
                 std::cout << "----------------------------------------\n";
                 std::cout << std::fixed << std::setprecision(2);
-                std::cout << "Parts Subtotal : $" << v.partsCost << "\n";
-                std::cout << "Labor Subtotal : $" << v.laborCost << "\n";
-                std::cout << "TOTAL ACCRUED  : $" << v.currentServiceCost << "\n";
+                std::cout << "Parts Subtotal (Appointment Included) : RM " << v.partsCost << "\n";
+                std::cout << "Labor Subtotal                         : RM " << v.laborCost << "\n";
+                std::cout << "TOTAL ACCRUED                          : RM " << v.currentServiceCost << "\n";
                 std::cout << "========================================\n";
                 return;
             }
@@ -431,7 +486,7 @@ void displayWorkshopVehicle(const std::vector<Customer>& customers, const std::v
         << std::setw(18) << "Status"
         << std::setw(18) << "Technician"
         << std::setw(18) << "Owner"
-        << "Accrued Cost ($)\n";
+        << "Accrued Cost (RM)\n";
     std::cout << "----------------------------------------------------------------------------------------------------\n";
 
     bool empty = true;
@@ -491,13 +546,12 @@ void searchVehicleHistory(const std::vector<Customer>& customers) {
     keyword = toUpper(keyword);
 
     std::cout << "\n========================================\n";
-    std::cout << "         VEHICLE SEARCH RESULTS         \n";
+    std::cout << "          VEHICLE SEARCH RESULTS         \n";
     std::cout << "========================================\n";
 
     bool found = false;
     for (const auto& c : customers) {
         for (const auto& v : c.vehicles) {
-            // All vehicle data is stored in uppercase, so we can search directly
             if (v.licensePlate.find(keyword) != std::string::npos ||
                 v.brand.find(keyword) != std::string::npos ||
                 v.model.find(keyword) != std::string::npos) {

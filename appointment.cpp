@@ -160,7 +160,7 @@ static void displayAppointmentRow(const Appointment& a) {
         << std::setw(12) << a.licensePlate
         << std::setw(14) << a.date
         << std::setw(10) << a.time
-        << (a.isActive ? "Active" : "Cancelled") << "\n";
+        << (a.isActive ? "Active" : "Inactive") << "\n";
 }
 
 static void displayAppointmentHeader() {
@@ -338,6 +338,16 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     }
 
     app.licensePlate = toUpper(selectedPlate);
+
+    // --- ENFORCE: only ONE active appointment allowed per vehicle at a time ---
+    for (const auto& a : appointments) {
+        if (a.isActive && a.licensePlate == app.licensePlate) {
+            std::cout << "\nERROR: This vehicle [" << app.licensePlate << "] already has an active appointment ("
+                << a.appointmentId << ", " << a.date << " @ " << a.time << ").\n";
+            std::cout << "Please reschedule/cancel the existing appointment before booking a new one.\n";
+            return;
+        }
+    }
 
     std::string today = getTodayDate();
     while (true) {
@@ -664,10 +674,16 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     }
 
     // --- PASS COST AND STATUS DATA TO VEHICLE PART & SAVE CUSTOMER DATA ---
+    // NOTE: Booked services/problems are LABOR (scheduled work), not physical
+    // parts, so both the fee AND the service name belong with laborCost /
+    // lastServiceDescription. partsCost/lastPartsUsed stay untouched here -
+    // those are only ever set later in service.cpp when a technician logs an
+    // actual replaced part during the job.
     for (auto& v : targetCustomer->vehicles) {
         if (v.licensePlate == app.licensePlate) {
             v.laborCost += totalServiceFee;
             v.currentServiceCost += totalServiceFee;
+            v.lastServiceDescription = combinedServices;
             v.status = "In Service Queue";
             break;
         }
@@ -756,7 +772,7 @@ void generateBookingSlip(const Appointment& app) {
         }
     }
 
-    std::cout << "Status          : " << (app.isActive ? "CONFIRMED" : "CANCELLED") << "\n";
+    std::cout << "Status          : " << (app.isActive ? "ACTIVE" : "INACTIVE") << "\n";
     std::cout << "========================================\n";
 }
 
@@ -1003,13 +1019,10 @@ static void cancelSpecificAppointment(Appointment* app, std::vector<Customer>& c
     }
 
     if (!app->isActive) {
-        std::cout << "This appointment is already cancelled.\n";
+        std::cout << "This appointment is already inactive.\n";
         return;
     }
 
-    // Reverse the fee that was added to the vehicle's cost when this
-    // appointment was booked, so cancelled appointments stop stacking up
-    // charges on the same vehicle.
     if (app->totalFee > 0.0) {
         for (auto& c : customers) {
             for (auto& v : c.vehicles) {
@@ -1018,6 +1031,7 @@ static void cancelSpecificAppointment(Appointment* app, std::vector<Customer>& c
                     v.currentServiceCost -= app->totalFee;
                     if (v.laborCost < 0.0) v.laborCost = 0.0;
                     if (v.currentServiceCost < 0.0) v.currentServiceCost = 0.0;
+                    v.lastServiceDescription.clear(); // belonged solely to this (now cancelled) appointment
                     break;
                 }
             }
@@ -1026,7 +1040,7 @@ static void cancelSpecificAppointment(Appointment* app, std::vector<Customer>& c
     }
 
     app->isActive = false;
-    std::cout << "Appointment " << app->appointmentId << " successfully cancelled.\n";
+    std::cout << "Appointment " << app->appointmentId << " successfully set to inactive.\n";
 }
 
 void searchAppointment(const std::vector<Appointment>& appointments) {

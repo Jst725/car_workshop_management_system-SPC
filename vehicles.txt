@@ -1,2 +1,3 @@
-01123456789|BJE427|PROTON|SAGE|2026-08-15|Ready for Pickup|KEN|0|210|||210
-01123456789|HAH339|GUD|GUD|N/A|In Service Queue|Unassigned|0|270|||270
+01123456789|BJE427|PROTON|SAGE|2026-08-25|In Service Queue|KEN|270|0|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] | (2) [Car Problems / Repair Issues] Engine Problems -> Engine Cannot Start |270
+01123456789|HAH339|GUD|GUD|2026-08-25|Ready for Pickup||0|1|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] | (2) [Scheduled Maintenance / Servicing] Full Periodic Service -> Standard Comprehensive Service [$250.00] |0
+1234567890|ABC123|PERODUA|MYVI|2026-08-24|Ready for Pickup||0|140|||140

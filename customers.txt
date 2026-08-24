@@ -1,1 +1,2 @@
-01123456789|ming|VIP|0
+01123456789|ming|Regular|178.08
+1234567890|ming|Regular|0

@@ -102,8 +102,8 @@ void customerMenu(vector<Customer>& customers) {
         cout << "1. Register New Customer\n";
         cout << "2. Add Vehicle to Customer\n";
         cout << "3. View All Customers\n";
-        cout << "4. Search Customer (by Phone Number)\n";
-        cout << "5. Edit Customer (by Phone Number)\n";
+        cout << "4. Search Customer\n";
+        cout << "5. Edit Customer\n";
         cout << "6. Delete Customer\n";
         cout << "0. Return to Main Menu\n";
         cout << "----------------------------------------\n";

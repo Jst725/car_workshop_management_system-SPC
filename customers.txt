@@ -1,2 +1,2 @@
-01123456789|ming|Regular|178.08
-1234567890|ming|Regular|0
+01123456789|ming|Regular|580.88
+1234567890|ming|Regular|148.4

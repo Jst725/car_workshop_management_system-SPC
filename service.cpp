@@ -236,6 +236,10 @@ void updateVehicleStatus(std::vector<Customer>& customers, const std::vector<App
                 case 3:
                     v.status = "Ready for Pickup";
                     v.lastServiceDate = getTodayDate();
+                    // Ensure costs are synced so invoice generator can process it
+                    if (v.currentServiceCost == 0.0) {
+                        syncAppointmentToPartsCost(v, appointments);
+                    }
                     break;
                 }
 
@@ -552,9 +556,9 @@ void searchVehicleHistory(const std::vector<Customer>& customers) {
     bool found = false;
     for (const auto& c : customers) {
         for (const auto& v : c.vehicles) {
-            if (v.licensePlate.find(keyword) != std::string::npos ||
-                v.brand.find(keyword) != std::string::npos ||
-                v.model.find(keyword) != std::string::npos) {
+            if (toUpper(v.licensePlate).find(keyword) != std::string::npos ||
+                toUpper(v.brand).find(keyword) != std::string::npos ||
+                toUpper(v.model).find(keyword) != std::string::npos) {
                 found = true;
                 std::cout << "Plate         : " << v.licensePlate << "\n";
                 std::cout << "Make/Model    : " << v.brand << " " << v.model << "\n";
@@ -619,6 +623,9 @@ void updateAllVehicleStatuses(std::vector<Customer>& customers, const std::vecto
                 v.status = newStatus;
                 if (newStatus == "Ready for Pickup") {
                     v.lastServiceDate = getTodayDate();
+                    if (v.currentServiceCost == 0.0) {
+                        syncAppointmentToPartsCost(v, appointments);
+                    }
                 }
                 updatedCount++;
             }

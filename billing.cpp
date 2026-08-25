@@ -11,7 +11,6 @@
 #include <sstream>
 #include <ctime>
 
-
 static std::string toUpper(std::string str) {
     for (char& c : str) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
@@ -19,7 +18,32 @@ static std::string toUpper(std::string str) {
     return str;
 }
 
-//Get current system date in YYYY-MM-DD format automatically
+// Truncate long strings into concise text for receipt/invoice line-items
+static std::string shortenText(const std::string& str, size_t maxLen = 30) {
+    if (str.length() <= maxLen) return str;
+    return str.substr(0, maxLen - 3) + "...";
+}
+
+// Helper to split a string by delimiter (e.g., ',' or '/')
+static std::vector<std::string> splitString(const std::string& str, char delim) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(str);
+    std::string token;
+    while (std::getline(ss, token, delim)) {
+        // Trim spaces
+        size_t start = token.find_first_not_of(" \t");
+        size_t end = token.find_last_not_of(" \t");
+        if (start != std::string::npos && end != std::string::npos) {
+            tokens.push_back(token.substr(start, end - start + 1));
+        }
+        else if (!token.empty()) {
+            tokens.push_back(token);
+        }
+    }
+    return tokens;
+}
+
+// Get current system date in YYYY-MM-DD format automatically
 static std::string getCurrentDate() {
     std::time_t t = std::time(nullptr);
     std::tm now{};
@@ -35,7 +59,7 @@ static std::string getCurrentDate() {
     return std::string(buffer);
 }
 
-//Get tier discount rate based on system membership tiers
+// Get tier discount rate based on system membership tiers
 static double getTierDiscountRate(const std::string& tier) {
     if (tier == "Silver") return 0.05;  // 5% discount
     if (tier == "Gold")   return 0.10;  // 10% discount
@@ -73,11 +97,59 @@ static void clearCinError() {
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
+// Print detailed invoice breakdown (Every Service / Problem, Parts Cost, Labor Cost, Unit Price)
+static void printInvoiceDetails(const Invoice& inv, const std::string& customerName) {
+    std::cout << "\n========================================================================================\n";
+    std::cout << "                              OFFICIAL WORKSHOP INVOICE                                 \n";
+    std::cout << "========================================================================================\n";
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "Bill ID         : " << inv.invoiceId << "\n";
+    std::cout << "Customer        : " << customerName << " (Phone: " << inv.customerId << ")\n";
+    std::cout << "License Plate   : " << inv.licensePlate << "\n";
+    std::cout << "Invoice Date    : " << inv.date << "\n";
+    std::cout << "----------------------------------------------------------------------------------------\n";
+    std::cout << std::left << std::setw(8) << "Type"
+        << std::setw(32) << "Service / Problem Name"
+        << std::setw(6) << "Qty"
+        << std::setw(14) << "Parts Cost(RM)"
+        << std::setw(14) << "Labor Cost(RM)"
+        << "Total Price(RM)\n";
+    std::cout << "----------------------------------------------------------------------------------------\n";
+
+    if (inv.items.empty()) {
+        std::cout << std::left << std::setw(8) << "Part"
+            << std::setw(32) << shortenText("General Service & Repair Cost")
+            << std::setw(6) << 1
+            << std::setw(14) << inv.partsCost
+            << std::setw(14) << inv.laborCost
+            << inv.partsCost + inv.laborCost << "\n";
+    }
+    else {
+        for (const auto& item : inv.items) {
+            std::cout << std::left << std::setw(8) << item.itemType
+                << std::setw(32) << shortenText(item.description)
+                << std::setw(6) << item.quantity
+                << std::setw(14) << item.unitPrice
+                << std::setw(14) << 0.00
+                << item.totalPrice << "\n";
+        }
+    }
+
+    double subtotal = inv.partsCost + inv.laborCost;
+    std::cout << "----------------------------------------------------------------------------------------\n";
+    std::cout << "Subtotal (Parts: RM" << inv.partsCost << " | Labor: RM" << inv.laborCost << "): RM" << subtotal << "\n";
+    std::cout << "Discount Amount : -RM" << inv.discountAmount << "\n";
+    std::cout << "Service Tax (6%): RM" << inv.taxAmount << "\n";
+    std::cout << "TOTAL AMOUNT    : RM" << inv.totalAmount << "\n";
+    std::cout << "Payment Status  : " << (inv.isPaid ? "PAID" : "UNPAID") << "\n";
+    std::cout << "========================================================================================\n";
+}
+
 void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customers, std::vector<Appointment>& appointments) {
     int choice = -1;
     do {
         std::cout << "\n========================================\n";
-        std::cout << "       BILL & PAYMENT MANAGEMENT        \n";
+        std::cout << "        BILL & PAYMENT MANAGEMENT        \n";
         std::cout << "========================================\n";
         std::cout << "1. Generate Invoice\n";
         std::cout << "2. Edit Invoice (Apply/Change Discount)\n";
@@ -140,7 +212,8 @@ void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customer
         if (uc == 1) {
             std::cout << "Enter new date (YYYY-MM-DD): ";
             std::cin >> target.date;
-            std::cout << "Bill date updated successfully.\n";
+            saveInvoicesToFile(invoices);
+            std::cout << "Bill date updated and saved successfully.\n";
         }
         else if (uc == 2) {
             std::cout << "\nChoose Discount Option:\n";
@@ -194,9 +267,12 @@ void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customer
             target.taxAmount = (sub - target.discountAmount) * 0.06;
             target.totalAmount = (sub - target.discountAmount) + target.taxAmount;
 
+            saveInvoicesToFile(invoices);
+
             std::cout << std::fixed << std::setprecision(2);
             std::cout << "Discount applied (" << discPercentageShown << "% equivalent / RM" << target.discountAmount << " off).\n";
             std::cout << "New Total (incl. 6% Tax): RM" << target.totalAmount << "\n";
+            std::cout << "Changes stored to file successfully.\n";
         }
         else if (uc == 3) {
             std::cout << "Confirm Delete? (Y/N): ";
@@ -204,7 +280,8 @@ void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customer
             std::cin >> confirm;
             if (std::toupper(confirm) == 'Y') {
                 invoices.erase(it);
-                std::cout << "Bill deleted successfully.\n";
+                saveInvoicesToFile(invoices);
+                std::cout << "Bill deleted and changes stored to file successfully.\n";
             }
             else {
                 std::cout << "Delete cancelled.\n";
@@ -220,7 +297,8 @@ void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customer
         if (pc == 1) {
             std::cout << "Enter new method (Cash/Card/E-Wallet): ";
             std::cin >> target.paymentType;
-            std::cout << "Payment method updated successfully.\n";
+            saveInvoicesToFile(invoices);
+            std::cout << "Payment method updated and saved successfully.\n";
         }
         else if (pc == 2) {
             std::cout << "Confirm Revert Payment? (Y/N): ";
@@ -238,7 +316,11 @@ void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customer
                     if (custIt->totalPurchases < 0) custIt->totalPurchases = 0;
                     updateCustomerTier(*custIt);
                 }
-                std::cout << "Payment Reverted -> Recalculated Customer Spending -> Recalculated Membership.\n";
+
+                saveInvoicesToFile(invoices);
+                saveCustomersToFile(customers);
+
+                std::cout << "Payment Reverted -> Recalculated Customer Spending -> Recalculated Membership -> Saved to File.\n";
             }
             else {
                 std::cout << "Revert cancelled.\n";
@@ -251,7 +333,7 @@ void paymentHistory(const std::vector<Customer>& customers, const std::vector<In
     int choice = -1;
     do {
         std::cout << "\n========================================\n";
-        std::cout << "             PAYMENT HISTORY            \n";
+        std::cout << "              PAYMENT HISTORY            \n";
         std::cout << "========================================\n";
         std::cout << "1. View All Bills\n";
         std::cout << "2. Search Bills (Phone / Plate / Bill ID)\n";
@@ -328,9 +410,18 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     for (auto& v : targetCustomer.vehicles) {
         if (v.currentServiceCost > 0.0 && v.status == "Ready for Pickup") {
             foundValidService = true;
+
+            // Resolve description priority
+            std::string descDisplay = !v.lastPartsUsed.empty() ? v.lastPartsUsed :
+                (!v.lastServiceDescription.empty() ? v.lastServiceDescription : "N/A");
+
+            double partsTotal = v.partsCost > 0.0 ? v.partsCost : v.currentServiceCost;
+
             std::cout << indexCounter << ". S00" << indexCounter << " | " << v.licensePlate
-                << " | " << (v.lastServiceDescription.empty() ? "General Service" : v.lastServiceDescription)
-                << " | RM" << std::fixed << std::setprecision(2) << v.currentServiceCost << "\n";
+                << " | Service: " << shortenText(descDisplay, 20)
+                << " | Parts Cost: RM" << std::fixed << std::setprecision(2) << partsTotal
+                << " | Labor: RM0.00"
+                << " | Total: RM" << partsTotal << "\n";
             indexCounter++;
         }
     }
@@ -377,28 +468,36 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     inv.invoiceId = generateNextInvoiceId(invoices);
     inv.customerId = targetCustomer.phone;
     inv.licensePlate = targetVehicle->licensePlate;
-    inv.date = targetVehicle->lastServiceDate;
-    inv.partsCost = targetVehicle->partsCost;
-    inv.laborCost = targetVehicle->laborCost;
+    inv.date = targetVehicle->lastServiceDate.empty() ? getCurrentDate() : targetVehicle->lastServiceDate;
 
-    if (targetVehicle->partsCost > 0.0) {
-        InvoiceItem partItem;
-        partItem.description = targetVehicle->lastPartsUsed.empty() ? "Replacement Auto Parts" : targetVehicle->lastPartsUsed;
-        partItem.itemType = "Part";
-        partItem.quantity = 1;
-        partItem.unitPrice = targetVehicle->partsCost;
-        partItem.totalPrice = targetVehicle->partsCost;
-        inv.items.push_back(partItem);
+    // Total parts cost and set labor cost to 0.00
+    inv.partsCost = targetVehicle->partsCost > 0.0 ? targetVehicle->partsCost : targetVehicle->currentServiceCost;
+    inv.laborCost = 0.0;
+
+    // Build itemized list for every service/problem
+    std::string rawDesc = !targetVehicle->lastPartsUsed.empty() ? targetVehicle->lastPartsUsed :
+        (!targetVehicle->lastServiceDescription.empty() ? targetVehicle->lastServiceDescription : "Service & Problem Repair");
+
+    // Split multiple services/problems if separated by commas or slashes
+    std::vector<std::string> serviceList = splitString(rawDesc, ',');
+    if (serviceList.size() <= 1) {
+        serviceList = splitString(rawDesc, '/');
     }
 
-    if (targetVehicle->laborCost > 0.0) {
-        InvoiceItem laborItem;
-        laborItem.description = targetVehicle->lastServiceDescription.empty() ? "General Mechanic Labor" : targetVehicle->lastServiceDescription;
-        laborItem.itemType = "Labor";
-        laborItem.quantity = 1;
-        laborItem.unitPrice = targetVehicle->laborCost;
-        laborItem.totalPrice = targetVehicle->laborCost;
-        inv.items.push_back(laborItem);
+    if (serviceList.empty()) {
+        serviceList.push_back(rawDesc);
+    }
+
+    double costPerService = inv.partsCost / static_cast<double>(serviceList.size());
+
+    for (const auto& serviceName : serviceList) {
+        InvoiceItem item;
+        item.description = serviceName;
+        item.itemType = "Part";
+        item.quantity = 1;
+        item.unitPrice = costPerService;
+        item.totalPrice = costPerService;
+        inv.items.push_back(item);
     }
 
     double subtotal = inv.partsCost + inv.laborCost;
@@ -411,24 +510,14 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     inv.isPaid = false;
     inv.paymentType = "Unpaid";
 
+    // Add to memory and permanently write to file storage
     invoices.push_back(inv);
     saveInvoicesToFile(invoices);
 
-    std::cout << "\n=========================================================================\n";
-    std::cout << "                        OFFICIAL WORKSHOP BILL                           \n";
-    std::cout << "=========================================================================\n";
-    std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Bill ID         : " << inv.invoiceId << "\n";
-    std::cout << "Customer        : " << targetCustomer.name << " (Phone: " << targetCustomer.phone << ")\n";
-    std::cout << "Membership Tier : " << targetCustomer.membershipTier << "\n";
-    std::cout << "-------------------------------------------------------------------------\n";
-    std::cout << "Subtotal        : RM" << subtotal << "\n";
-    std::cout << "Discount Rate   : " << (discountRate * 100.0) << "%\n";
-    std::cout << "Discount Amount : RM" << inv.discountAmount << "\n";
-    std::cout << "Tax (6%)        : RM" << inv.taxAmount << "\n";
-    std::cout << "TOTAL AMOUNT    : RM" << inv.totalAmount << "\n";
-    std::cout << "Payment Status  : Unpaid\n";
-    std::cout << "=========================================================================\n";
+    std::cout << "\nSUCCESS: Invoice [" << inv.invoiceId << "] generated and saved to storage!\n";
+
+    // Print Full Invoice Details right after generation
+    printInvoiceDetails(inv, targetCustomer.name);
 }
 
 void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& customers, std::vector<Appointment>& appointments) {
@@ -501,8 +590,12 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
         }
     }
 
+    // Display Invoice breakdown BEFORE processing payment
+    std::cout << "\n--- INVOICE REVIEW PRIOR TO PAYMENT ---";
+    printInvoiceDetails(*selectedInvoice, targetCustomer.name);
+
     std::cout << "\n=======================================================\n";
-    std::cout << "                   PAYMENT PROCESSING                  \n";
+    std::cout << "                    PAYMENT PROCESSING                  \n";
     std::cout << "=======================================================\n";
     std::cout << "Total Bill      : RM" << std::fixed << std::setprecision(2) << selectedInvoice->totalAmount << "\n";
 
@@ -545,7 +638,6 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
         amountPaid = selectedInvoice->totalAmount;
     }
 
-    // Auto set current day as payment date
     std::string payDate = getCurrentDate();
     std::cout << "Payment Date    : " << payDate << " (Auto-set to current date)\n";
 
@@ -570,27 +662,62 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
         }
     }
 
+    // Persist all changes across customers, appointments, and invoices
     saveAllData(customers, appointments, invoices);
 
-    std::cout << "\n=======================================================\n";
-    std::cout << "               OFFICIAL PAYMENT RECEIPT                \n";
-    std::cout << "=======================================================\n";
-    std::cout << " Bill ID      : " << selectedInvoice->invoiceId << "\n";
-    std::cout << " Customer     : " << targetCustomer.name << " (Phone: " << targetCustomer.phone << ")\n";
-    std::cout << " Plate        : " << selectedInvoice->licensePlate << "\n";
-    std::cout << " Payment Date : " << payDate << "\n";
-    std::cout << " Method       : " << selectedInvoice->paymentType << "\n";
-    std::cout << "-------------------------------------------------------\n";
-    std::cout << " Total Bill   : RM" << std::fixed << std::setprecision(2) << selectedInvoice->totalAmount << "\n";
-    if (selectedInvoice->paymentType == "Cash") {
-        std::cout << " Cash Given   : RM" << amountPaid << "\n";
-        std::cout << " Change Due   : RM" << changeGiven << "\n";
+    // Official Detailed Payment Receipt showing every item cost
+    std::cout << "\n========================================================================================\n";
+    std::cout << "                                OFFICIAL PAYMENT RECEIPT                                \n";
+    std::cout << "========================================================================================\n";
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << " Bill ID        : " << selectedInvoice->invoiceId << "\n";
+    std::cout << " Customer       : " << targetCustomer.name << " (Phone: " << targetCustomer.phone << ")\n";
+    std::cout << " Plate          : " << selectedInvoice->licensePlate << "\n";
+    std::cout << " Payment Date   : " << payDate << "\n";
+    std::cout << " Method         : " << selectedInvoice->paymentType << "\n";
+    std::cout << "----------------------------------------------------------------------------------------\n";
+    std::cout << std::left << std::setw(8) << " Type"
+        << std::setw(32) << " Service / Problem Name"
+        << std::setw(6) << " Qty"
+        << std::setw(14) << " Parts Cost(RM)"
+        << std::setw(14) << " Labor Cost(RM)"
+        << " Total Price(RM)\n";
+    std::cout << "----------------------------------------------------------------------------------------\n";
+
+    if (selectedInvoice->items.empty()) {
+        std::cout << " " << std::left << std::setw(7) << "Part"
+            << std::setw(32) << shortenText("General Service & Repair Cost")
+            << std::setw(6) << 1
+            << std::setw(14) << selectedInvoice->partsCost
+            << std::setw(14) << selectedInvoice->laborCost
+            << selectedInvoice->partsCost + selectedInvoice->laborCost << "\n";
     }
     else {
-        std::cout << " Amount Paid  : RM" << amountPaid << "\n";
+        for (const auto& item : selectedInvoice->items) {
+            std::cout << " " << std::left << std::setw(7) << item.itemType
+                << std::setw(32) << shortenText(item.description)
+                << std::setw(6) << item.quantity
+                << std::setw(14) << item.unitPrice
+                << std::setw(14) << 0.00
+                << item.totalPrice << "\n";
+        }
     }
-    std::cout << " Status       : " << (fullySettled ? "PAID IN FULL" : "PARTIAL - Balance remaining") << "\n";
-    std::cout << "=======================================================\n";
+
+    double subtotal = selectedInvoice->partsCost + selectedInvoice->laborCost;
+    std::cout << "----------------------------------------------------------------------------------------\n";
+    std::cout << " Subtotal (Parts: RM" << selectedInvoice->partsCost << " | Labor: RM" << selectedInvoice->laborCost << "): RM" << subtotal << "\n";
+    std::cout << " Discount       : -RM" << selectedInvoice->discountAmount << "\n";
+    std::cout << " Service Tax 6% : RM" << selectedInvoice->taxAmount << "\n";
+    std::cout << " Total Bill     : RM" << selectedInvoice->totalAmount << "\n";
+    if (selectedInvoice->paymentType == "Cash") {
+        std::cout << " Cash Given     : RM" << amountPaid << "\n";
+        std::cout << " Change Due     : RM" << changeGiven << "\n";
+    }
+    else {
+        std::cout << " Amount Paid    : RM" << amountPaid << "\n";
+    }
+    std::cout << " Status         : " << (fullySettled ? "PAID IN FULL" : "PARTIAL - Balance remaining") << "\n";
+    std::cout << "========================================================================================\n";
 }
 
 void displayInvoices(const std::vector<Invoice>& invoices) {

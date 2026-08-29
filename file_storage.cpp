@@ -7,7 +7,7 @@
 
 using namespace std;
 
-// Splits a line by '|' into its raw fields (does not consume the stream).
+// Splits a line by '|' into its raw fields.
 static vector<string> splitFields(const string& line) {
     vector<string> fields;
     stringstream ss(line);
@@ -28,11 +28,7 @@ static int toIntSafe(const string& s) {
 }
 
 // ===================================================
-// CUSTOMER + VEHICLE FILE I/O (my part)
-//
-// customers.txt : phone|name|membershipTier|totalPurchases
-// vehicles.txt  : phone|plate|brand|model|lastServiceDate|status|assignedTechnician|
-//                 partsCost|laborCost|lastServiceDescription|lastPartsUsed|currentServiceCost
+// CUSTOMER + VEHICLE FILE I/O
 // ===================================================
 
 void saveCustomersToFile(const vector<Customer>& customers) {
@@ -54,11 +50,20 @@ void saveCustomersToFile(const vector<Customer>& customers) {
     }
     for (const auto& c : customers) {
         for (const auto& v : c.vehicles) {
+            // Serialize itemized vector<PartItem>
+            stringstream partsSs;
+            for (size_t i = 0; i < v.parts.size(); ++i) {
+                const auto& p = v.parts[i];
+                partsSs << p.partId << "," << p.name << "," << p.quantity << ","
+                    << p.unitPrice << "," << p.price << "," << (p.isFromAppointment ? 1 : 0);
+                if (i + 1 < v.parts.size()) partsSs << ";";
+            }
+
             vehFile << c.phone << "|" << v.licensePlate << "|" << v.brand << "|" << v.model << "|"
                 << v.lastServiceDate << "|" << v.status << "|" << v.assignedTechnician << "|"
                 << v.partsCost << "|" << v.laborCost << "|"
                 << v.lastServiceDescription << "|" << v.lastPartsUsed << "|"
-                << v.currentServiceCost << "\n";
+                << v.currentServiceCost << "|" << partsSs.str() << "\n";
         }
     }
     vehFile.close();
@@ -66,9 +71,7 @@ void saveCustomersToFile(const vector<Customer>& customers) {
 
 void loadCustomersFromFile(vector<Customer>& customers) {
     ifstream custFile("customers.txt");
-    if (!custFile.is_open()) {
-        return; // First run - no data yet, that's fine
-    }
+    if (!custFile.is_open()) return;
 
     customers.clear();
     bool legacyDetected = false;
@@ -79,12 +82,8 @@ void loadCustomersFromFile(vector<Customer>& customers) {
         vector<string> fields = splitFields(line);
 
         if (fields.size() >= 5) {
-            // ---- OLDEST legacy format: id|name|phone|tier|vehicleCount (with
-            //      vehicles embedded directly below the customer line) ----
             legacyDetected = true;
-
             Customer c;
-            // fields[0] = old id -> discarded, phone is now the only identifier
             c.name = fields[1];
             c.phone = fields[2];
             c.membershipTier = fields[3];
@@ -109,7 +108,6 @@ void loadCustomersFromFile(vector<Customer>& customers) {
             customers.push_back(c);
         }
         else {
-            // ---- phone|name|tier[|totalPurchases] ----
             Customer c;
             c.phone = fields.size() > 0 ? fields[0] : "";
             c.name = fields.size() > 1 ? fields[1] : "";
@@ -121,16 +119,15 @@ void loadCustomersFromFile(vector<Customer>& customers) {
     custFile.close();
 
     if (legacyDetected) {
-        cout << "[SYSTEM] Detected legacy customer file (with Customer ID) - migrated "
-            << customers.size() << " record(s) to the current phone-based format.\n";
-        saveCustomersToFile(customers); // rewrite both files in the current format
-        return; // vehicles were already captured above from the embedded legacy data
+        cout << "[SYSTEM] Detected legacy customer file - migrated "
+            << customers.size() << " record(s) to phone-based format.\n";
+        saveCustomersToFile(customers);
+        return;
     }
 
-    // ---- Load vehicles.txt and re-attach each vehicle to its owner by phone ----
     ifstream vehFile("vehicles.txt");
     if (!vehFile.is_open()) {
-        cout << "[SYSTEM] Loaded " << customers.size() << " customer record(s). (No vehicles.txt found yet.)\n";
+        cout << "[SYSTEM] Loaded " << customers.size() << " customer record(s).\n";
         return;
     }
 
@@ -138,7 +135,7 @@ void loadCustomersFromFile(vector<Customer>& customers) {
     while (getline(vehFile, line)) {
         if (line.empty()) continue;
         vector<string> vf = splitFields(line);
-        if (vf.size() < 8) continue; // malformed line, skip
+        if (vf.size() < 8) continue;
 
         const string& ownerPhone = vf[0];
         Vehicle v;
@@ -150,15 +147,37 @@ void loadCustomersFromFile(vector<Customer>& customers) {
         v.assignedTechnician = vf[6];
 
         if (vf.size() >= 12) {
-            // current format: ...|partsCost|laborCost|lastServiceDescription|lastPartsUsed|currentServiceCost
             v.partsCost = toDoubleSafe(vf[7]);
             v.laborCost = toDoubleSafe(vf[8]);
             v.lastServiceDescription = vf[9];
             v.lastPartsUsed = vf[10];
             v.currentServiceCost = toDoubleSafe(vf[11]);
+
+            if (vf.size() >= 13 && !vf[12].empty()) {
+                stringstream partsSs(vf[12]);
+                string pToken;
+                while (getline(partsSs, pToken, ';')) {
+                    if (pToken.empty()) continue;
+                    stringstream itemSs(pToken);
+                    string itemField;
+                    vector<string> pf;
+                    while (getline(itemSs, itemField, ',')) {
+                        pf.push_back(itemField);
+                    }
+                    if (pf.size() >= 6) {
+                        PartItem p;
+                        p.partId = pf[0];
+                        p.name = pf[1];
+                        p.quantity = toIntSafe(pf[2]);
+                        p.unitPrice = toDoubleSafe(pf[3]);
+                        p.price = toDoubleSafe(pf[4]);
+                        p.isFromAppointment = (toIntSafe(pf[5]) != 0);
+                        v.parts.push_back(p);
+                    }
+                }
+            }
         }
         else {
-            // previous format: ...|currentServiceCost (no parts/labor split yet)
             v.currentServiceCost = toDoubleSafe(vf[7]);
         }
 
@@ -178,13 +197,6 @@ void loadCustomersFromFile(vector<Customer>& customers) {
 
 // ===================================================
 // APPOINTMENT FILE I/O
-// (best-effort implementation based on the appointments.txt format that was
-//  already in the project - Appointment module owner should double check this)
-//
-// appointments.txt : appointmentId|customerId|licensePlate|date|time|serviceType|totalFee|isActive(0/1)
-// NOTE: serviceType may itself contain '|' characters (multi-item bookings
-// joined with " | ", or free-text remarks), so on load we can't assume it's
-// exactly one field - see loadAppointmentsFromFile() below.
 // ===================================================
 
 void saveAppointmentsToFile(const vector<Appointment>& appointments) {
@@ -211,7 +223,7 @@ void loadAppointmentsFromFile(vector<Appointment>& appointments) {
     while (getline(inFile, line)) {
         if (line.empty()) continue;
         vector<string> f = splitFields(line);
-        if (f.size() < 7) continue; // malformed line, skip
+        if (f.size() < 7) continue;
 
         Appointment a;
         a.appointmentId = f[0];
@@ -220,19 +232,7 @@ void loadAppointmentsFromFile(vector<Appointment>& appointments) {
         a.date = f[3];
         a.time = f[4];
 
-        // serviceType can itself contain '|' characters - bookAppointment()
-        // joins multiple selected services with " | ", and the free-text
-        // remark the user types can contain anything too. That means a line
-        // with a multi-item booking splits into MORE fields than the fixed
-        // ones, not exactly the expected count. Instead, treat everything
-        // between the 5 fixed leading fields and the 2 fixed trailing fields
-        // (totalFee, isActive) as serviceType, and always read those last
-        // two fields from the END of the line.
-        //
-        // Lines saved BEFORE totalFee existed only have 1 trailing field
-        // (isActive), so we detect that case too and default totalFee to 0.
         bool hasTotalFee = (f.size() >= 8);
-
         size_t serviceTypeEnd = hasTotalFee ? f.size() - 2 : f.size() - 1;
         string serviceType = f[5];
         for (size_t i = 6; i < serviceTypeEnd; i++) {
@@ -254,20 +254,78 @@ void loadAppointmentsFromFile(vector<Appointment>& appointments) {
 
 // ===================================================
 // INVOICE FILE I/O
-// PLACEHOLDER: Invoice now contains a nested vector<InvoiceItem>, which needs
-// its own serialization design. Billing module owner should implement this.
 // ===================================================
 
 void saveInvoicesToFile(const vector<Invoice>& invoices) {
-    // TODO: Billing module owner should implement this (Invoice.items is nested data).
+    ofstream outFile("invoices.txt");
+    if (!outFile.is_open()) {
+        cout << "[ERROR] Could not open invoices.txt for writing!\n";
+        return;
+    }
+
+    for (const auto& inv : invoices) {
+        outFile << "INV|" << inv.invoiceId << "|" << inv.customerId << "|"
+            << inv.licensePlate << "|" << inv.date << "|"
+            << inv.partsCost << "|" << inv.laborCost << "|"
+            << inv.discountAmount << "|" << inv.taxAmount << "|"
+            << inv.totalAmount << "|" << (inv.isPaid ? 1 : 0) << "|"
+            << inv.paymentType << "\n";
+
+        for (const auto& item : inv.items) {
+            outFile << "ITEM|" << item.description << "|" << item.itemType << "|"
+                << item.quantity << "|" << item.unitPrice << "|"
+                << item.totalPrice << "\n";
+        }
+    }
+    outFile.close();
 }
 
 void loadInvoicesFromFile(vector<Invoice>& invoices) {
-    // TODO: Billing module owner should implement this (Invoice.items is nested data).
+    ifstream inFile("invoices.txt");
+    if (!inFile.is_open()) return;
+
+    invoices.clear();
+    string line;
+    Invoice* currentInvoice = nullptr;
+
+    while (getline(inFile, line)) {
+        if (line.empty()) continue;
+        vector<string> f = splitFields(line);
+        if (f.empty()) continue;
+
+        if (f[0] == "INV" && f.size() >= 12) {
+            Invoice inv;
+            inv.invoiceId = f[1];
+            inv.customerId = f[2];
+            inv.licensePlate = f[3];
+            inv.date = f[4];
+            inv.partsCost = toDoubleSafe(f[5]);
+            inv.laborCost = toDoubleSafe(f[6]);
+            inv.discountAmount = toDoubleSafe(f[7]);
+            inv.taxAmount = toDoubleSafe(f[8]);
+            inv.totalAmount = toDoubleSafe(f[9]);
+            inv.isPaid = (toIntSafe(f[10]) != 0);
+            inv.paymentType = f[11];
+
+            invoices.push_back(inv);
+            currentInvoice = &invoices.back();
+        }
+        else if (f[0] == "ITEM" && f.size() >= 6 && currentInvoice != nullptr) {
+            InvoiceItem item;
+            item.description = f[1];
+            item.itemType = f[2];
+            item.quantity = toIntSafe(f[3]);
+            item.unitPrice = toDoubleSafe(f[4]);
+            item.totalPrice = toDoubleSafe(f[5]);
+
+            currentInvoice->items.push_back(item);
+        }
+    }
+    inFile.close();
 }
 
 // ===================================================
-// COMBINED HELPERS (used by main.cpp)
+// COMBINED HELPERS
 // ===================================================
 
 void loadAllData(vector<Customer>& customers, vector<Appointment>& appointments, vector<Invoice>& invoices) {

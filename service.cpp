@@ -9,12 +9,54 @@
 #include <cctype>
 #include <regex>
 #include <vector>
+#include <cstdlib>
+#include <limits>
+
+// ANSI Light Color Definitions (No Blue, Green, or Purple)
+namespace Color {
+    const std::string RESET = "\033[0m";
+    const std::string BOLD = "\033[1m";
+    const std::string CYAN = "\033[36m";
+    const std::string BRIGHT_CYAN = "\033[96m";
+    const std::string BRIGHT_YELLOW = "\033[93m";
+    const std::string BRIGHT_WHITE = "\033[97m";
+    const std::string BRIGHT_RED = "\033[91m";
+    const std::string LIGHT_GRAY = "\033[37m";
+}
+
+// Helper: Cross-platform screen clear function
+static void clearScreen() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
+// Helper: Safely clear std::cin state upon bad input
+static void clearCinError() {
+    std::cin.clear();
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+}
+
+// Helper: Prompts the user to press Enter before continuing
+static void pauseConsole() {
+    std::cout << Color::BRIGHT_YELLOW << "\nPress Enter to continue..." << Color::RESET;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.get();
+}
 
 static std::string toUpper(std::string str) {
     for (char& c : str) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     }
     return str;
+}
+
+// Truncates long item names so table columns stay aligned
+static std::string shortenText(const std::string& str, size_t maxLen = 24) {
+    if (str.length() <= maxLen) return str;
+    return str.substr(0, maxLen - 3) + "...";
 }
 
 static std::string getTodayDate() {
@@ -90,9 +132,6 @@ static std::vector<std::pair<std::string, double>> parseServiceItems(const std::
 static void syncAppointmentToPartsCost(Vehicle& vehicle, const std::vector<Appointment>& appointments) {
     std::string today = getTodayDate();
 
-    // Explicitly reset labor cost to 0.00
-    vehicle.laborCost = 0.0;
-
     for (const auto& app : appointments) {
         if (app.isActive && toUpper(app.licensePlate) == toUpper(vehicle.licensePlate)) {
 
@@ -114,7 +153,12 @@ static void syncAppointmentToPartsCost(Vehicle& vehicle, const std::vector<Appoi
                     PartItem part;
                     part.partId = itemPartId;
                     part.name = parsedItems[idx].first;   // Short description
-                    part.price = parsedItems[idx].second; // Fee or RM 0.00 if unpriced
+                    part.quantity = 1;
+                    part.unitPrice = parsedItems[idx].second; // Fee or RM 0.00 if unpriced
+                    part.price = part.unitPrice;
+                    // This item represents the service/problem the customer booked
+                    // during their appointment - it must be locked from editing here.
+                    part.isFromAppointment = true;
                     vehicle.parts.push_back(part);
                 }
             }
@@ -139,76 +183,84 @@ static void syncAppointmentToPartsCost(Vehicle& vehicle, const std::vector<Appoi
 }
 
 void searchVehicleHistory(const std::vector<Customer>& customers);
-void updateAllVehicleStatuses(std::vector<Customer>& customers, const std::vector<Appointment>& appointments);
 
 void vehicleMenu(std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
     int choice = -1;
     do {
-        std::cout << "\n========================================\n";
-        std::cout << "          VEHICLE MANAGEMENT            \n";
-        std::cout << "========================================\n";
-        std::cout << "1. Update Vehicle Status\n";
-        std::cout << "2. Update Service & Pricing\n";
-        std::cout << "3. View Itemized Service Breakdown\n";
-        std::cout << "4. View Workshop Vehicles Dashboard\n";
-        std::cout << "5. Check Service Reminders\n";
-        std::cout << "6. Search Vehicle Database\n";
-        std::cout << "7. Bulk Update Workshop Statuses\n";
-        std::cout << "0. Return to Main Menu\n";
-        std::cout << "----------------------------------------\n";
-        std::cout << "Enter choice: ";
+        clearScreen();
+        std::cout << Color::CYAN << "\n========================================\n" << Color::RESET
+            << Color::BRIGHT_YELLOW << Color::BOLD << "          VEHICLE MANAGEMENT            \n" << Color::RESET
+            << Color::CYAN << "========================================\n" << Color::RESET
+            << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Update Vehicle Status\n"
+            << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Update Service & Pricing\n"
+            << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "View Itemized Service Breakdown\n"
+            << Color::BRIGHT_CYAN << "4. " << Color::BRIGHT_WHITE << "View Workshop Vehicles Dashboard\n"
+            << Color::BRIGHT_CYAN << "5. " << Color::BRIGHT_WHITE << "Check Service Reminders\n"
+            << Color::BRIGHT_CYAN << "6. " << Color::BRIGHT_WHITE << "Search Vehicle Database\n"
+            << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Return to Main Menu\n"
+            << Color::CYAN << "----------------------------------------\n" << Color::RESET
+            << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
 
         if (!(std::cin >> choice)) {
-            std::cout << "Invalid input! Please enter a number.\n";
-            std::cin.clear();
-            std::cin.ignore(1000, '\n');
+            std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
+            clearCinError();
+            pauseConsole();
             continue;
         }
 
         switch (choice) {
         case 1:
+            clearScreen();
             updateVehicleStatus(customers, appointments);
             saveCustomersToFile(customers);
+            pauseConsole();
             break;
         case 2:
+            clearScreen();
             updateService(customers, appointments);
             saveCustomersToFile(customers);
+            pauseConsole();
             break;
         case 3:
+            clearScreen();
             viewServiceBreakdown(customers, appointments);
+            pauseConsole();
             break;
         case 4:
+            clearScreen();
             displayWorkshopVehicle(customers, appointments);
+            pauseConsole();
             break;
         case 5:
+            clearScreen();
             checkServiceReminders(customers, appointments);
+            pauseConsole();
             break;
         case 6:
+            clearScreen();
             searchVehicleHistory(customers);
-            break;
-        case 7:
-            updateAllVehicleStatuses(customers, appointments);
-            saveCustomersToFile(customers);
+            pauseConsole();
             break;
         case 0:
-            std::cout << "Returning to Main Menu...\n";
+            std::cout << Color::BRIGHT_CYAN << "Returning to Main Menu...\n" << Color::RESET;
             break;
         default:
-            std::cout << "Invalid choice! Please select an option between 0 and 7.\n";
+            std::cout << Color::BRIGHT_RED << "Invalid choice! Please select an option between 0 and 6.\n" << Color::RESET;
+            pauseConsole();
         }
     } while (choice != 0);
 }
 
 void updateVehicleStatus(std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
     std::string plate;
-    std::cout << "\nEnter Vehicle License Plate (or 0 to Return): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Vehicle License Plate (or 0 to Return): " << Color::RESET;
     std::cin >> plate;
     if (plate == "0") return;
 
     plate = toUpper(plate);
 
     if (!hasActiveAppointment(plate, appointments)) {
-        std::cout << "ERROR: Vehicle [" << plate << "] has no active appointment booking!\n";
+        std::cout << Color::BRIGHT_RED << "ERROR: Vehicle [" << plate << "] has no active appointment booking!\n" << Color::RESET;
         return;
     }
 
@@ -217,16 +269,15 @@ void updateVehicleStatus(std::vector<Customer>& customers, const std::vector<App
             if (toUpper(v.licensePlate) == plate) {
                 int st = -1;
                 while (true) {
-                    std::cout << "\nSelect Current Status:\n";
-                    std::cout << "1. Awaiting Parts\n";
-                    std::cout << "2. In Progress\n";
-                    std::cout << "3. Ready for Pickup\n";
-                    std::cout << "0. Return\n";
-                    std::cout << "Choice: ";
+                    std::cout << Color::CYAN << "\nSelect Current Status:\n" << Color::RESET
+                        << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Awaiting Parts\n"
+                        << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "In Progress\n"
+                        << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Ready for Pickup\n"
+                        << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Return\n"
+                        << Color::BRIGHT_YELLOW << "Choice: " << Color::RESET;
                     if (std::cin >> st && st >= 0 && st <= 3) break;
-                    std::cout << "Invalid choice! Enter 0-3.\n";
-                    std::cin.clear();
-                    std::cin.ignore(1000, '\n');
+                    std::cout << Color::BRIGHT_RED << "Invalid choice! Enter 0-3.\n" << Color::RESET;
+                    clearCinError();
                 }
 
                 if (st == 0) return;
@@ -236,35 +287,34 @@ void updateVehicleStatus(std::vector<Customer>& customers, const std::vector<App
                 case 3:
                     v.status = "Ready for Pickup";
                     v.lastServiceDate = getTodayDate();
-                    // Ensure costs are synced so invoice generator can process it
                     if (v.currentServiceCost == 0.0) {
                         syncAppointmentToPartsCost(v, appointments);
                     }
                     break;
                 }
 
-                std::cout << "Assign Technician Name: ";
+                std::cout << Color::BRIGHT_YELLOW << "Assign Technician Name: " << Color::RESET;
                 std::cin.ignore(1000, '\n');
                 std::getline(std::cin, v.assignedTechnician);
 
-                std::cout << "Status successfully updated for " << v.licensePlate << "!\n";
+                std::cout << Color::BRIGHT_CYAN << "Status successfully updated for " << Color::BRIGHT_WHITE << v.licensePlate << "!\n" << Color::RESET;
                 return;
             }
         }
     }
-    std::cout << "Vehicle plate not found in database.\n";
+    std::cout << Color::BRIGHT_RED << "Vehicle plate not found in database.\n" << Color::RESET;
 }
 
 void updateService(std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
     std::string plate;
-    std::cout << "\nEnter Vehicle License Plate (or 0 to Return): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Vehicle License Plate (or 0 to Return): " << Color::RESET;
     std::cin >> plate;
     if (plate == "0") return;
 
     plate = toUpper(plate);
 
     if (!hasActiveAppointment(plate, appointments)) {
-        std::cout << "ERROR: Vehicle [" << plate << "] has no active appointment booking!\n";
+        std::cout << Color::BRIGHT_RED << "ERROR: Vehicle [" << plate << "] has no active appointment booking!\n" << Color::RESET;
         return;
     }
 
@@ -276,31 +326,52 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
 
                 int choice = -1;
                 do {
-                    std::cout << "\n========================================\n";
-                    std::cout << "   EDIT SERVICE & PRICING: " << v.licensePlate << "\n";
-                    std::cout << "========================================\n";
-                    std::cout << "1. Add Additional Part / Component\n";
-                    std::cout << "2. Labor Charge (Current: RM " << std::fixed << std::setprecision(2) << v.laborCost << ")\n";
-                    std::cout << "--- Logged Appointment Services & Parts (Parts Subtotal: RM " << std::fixed << std::setprecision(2) << v.partsCost << ") ---\n";
+                    clearScreen();
+                    std::cout << Color::CYAN << "\n============================================================\n" << Color::RESET
+                        << Color::BRIGHT_YELLOW << Color::BOLD << "  EDIT SERVICE & PRICING: " << Color::BRIGHT_WHITE << v.licensePlate << "\n" << Color::RESET
+                        << Color::CYAN << "============================================================\n" << Color::RESET
+                        << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Add Additional Part / Component\n"
+                        << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Labor Charge (Current: RM " << std::fixed << std::setprecision(2) << v.laborCost << ")\n"
+                        << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET
+                        << Color::BRIGHT_YELLOW << "Logged Appointment Services & Workshop Parts:\n" << Color::RESET;
 
                     int optionNum = 3;
                     if (v.parts.empty()) {
-                        std::cout << "   (No parts or appointment services logged)\n";
+                        std::cout << Color::LIGHT_GRAY << "   (No parts or appointment services logged)\n" << Color::RESET;
                     }
                     else {
+                        std::cout << Color::BRIGHT_CYAN << std::left
+                            << std::setw(5) << "No."
+                            << std::setw(26) << "Description"
+                            << std::setw(10) << "Type"
+                            << std::setw(6) << "Qty"
+                            << std::setw(12) << "Unit(RM)"
+                            << "Total(RM)\n" << Color::RESET
+                            << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET;
                         for (size_t i = 0; i < v.parts.size(); ++i) {
-                            std::cout << optionNum++ << ". " << v.parts[i].name
-                                << " (RM " << std::fixed << std::setprecision(2) << v.parts[i].price << ")\n";
+                            const PartItem& p = v.parts[i];
+                            std::cout << Color::BRIGHT_WHITE << std::left
+                                << std::setw(5) << optionNum++
+                                << std::setw(26) << shortenText(p.name)
+                                << std::setw(10) << (p.isFromAppointment ? "Locked" : "Workshop")
+                                << std::setw(6) << p.quantity
+                                << std::setw(12) << std::fixed << std::setprecision(2) << p.unitPrice
+                                << std::fixed << std::setprecision(2) << p.price << "\n" << Color::RESET;
                         }
                     }
-                    std::cout << "0. Save & Exit\n";
-                    std::cout << "----------------------------------------\n";
-                    std::cout << "Select item number to change (0 to finish): ";
+                    std::cout << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET
+                        << Color::BRIGHT_CYAN << "Parts Subtotal: RM " << Color::BRIGHT_WHITE << std::fixed << std::setprecision(2) << v.partsCost
+                        << Color::BRIGHT_CYAN << "   |   Labor: RM " << Color::BRIGHT_WHITE << v.laborCost
+                        << Color::BRIGHT_CYAN << "   |   TOTAL: RM " << Color::BRIGHT_WHITE << v.currentServiceCost << "\n"
+                        << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET
+                        << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Save & Exit\n"
+                        << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET
+                        << Color::BRIGHT_YELLOW << "Select item number to change (0 to finish): " << Color::RESET;
 
                     if (!(std::cin >> choice)) {
-                        std::cout << "Invalid input! Please enter a number.\n";
-                        std::cin.clear();
-                        std::cin.ignore(1000, '\n');
+                        std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
+                        clearCinError();
+                        pauseConsole();
                         continue;
                     }
 
@@ -312,66 +383,92 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                         int qty = 1;
                         double unitPrice = 0.0;
 
-                        std::cout << "Enter Part Name: ";
+                        std::cout << Color::BRIGHT_YELLOW << "Enter Part Name: " << Color::RESET;
                         std::cin.ignore(1000, '\n');
                         std::getline(std::cin, p.name);
 
                         while (true) {
-                            std::cout << "Enter Quantity: ";
+                            std::cout << Color::BRIGHT_YELLOW << "Enter Quantity: " << Color::RESET;
                             if (std::cin >> qty && qty > 0) break;
-                            std::cout << "Invalid quantity!\n";
-                            std::cin.clear();
-                            std::cin.ignore(1000, '\n');
+                            std::cout << Color::BRIGHT_RED << "Invalid quantity!\n" << Color::RESET;
+                            clearCinError();
                         }
 
                         while (true) {
-                            std::cout << "Enter Unit Price for " << p.name << ": RM ";
+                            std::cout << Color::BRIGHT_YELLOW << "Enter Unit Price for " << p.name << ": RM " << Color::RESET;
                             if (std::cin >> unitPrice && unitPrice >= 0.0) break;
-                            std::cout << "Invalid price!\n";
-                            std::cin.clear();
-                            std::cin.ignore(1000, '\n');
+                            std::cout << Color::BRIGHT_RED << "Invalid price!\n" << Color::RESET;
+                            clearCinError();
                         }
 
-                        if (qty > 1) {
-                            p.name = std::to_string(qty) + "x " + p.name;
-                        }
+                        p.quantity = qty;
+                        p.unitPrice = unitPrice;
                         p.price = qty * unitPrice;
+                        p.isFromAppointment = false;
                         v.parts.push_back(p);
                     }
                     else if (choice == 2) {
                         double newLabor = 0.0;
                         while (true) {
-                            std::cout << "Enter Labor Charge: RM ";
+                            std::cout << Color::BRIGHT_YELLOW << "Enter Labor Charge: RM " << Color::RESET;
                             if (std::cin >> newLabor && newLabor >= 0.0) break;
-                            std::cout << "Invalid labor charge!\n";
-                            std::cin.clear();
-                            std::cin.ignore(1000, '\n');
+                            std::cout << Color::BRIGHT_RED << "Invalid labor charge!\n" << Color::RESET;
+                            clearCinError();
                         }
                         v.laborCost = newLabor;
                     }
                     else if (choice >= 3 && choice < 3 + static_cast<int>(v.parts.size())) {
                         int partIdx = choice - 3;
-                        std::cout << "\n--- EDIT ITEM: " << v.parts[partIdx].name << " ---\n";
-                        std::cout << "1. Edit Price\n";
-                        std::cout << "2. Edit Description\n";
-                        std::cout << "3. Remove Item\n";
-                        std::cout << "Choice: ";
+
+                        if (v.parts[partIdx].isFromAppointment) {
+                            std::cout << Color::BRIGHT_RED << "\n[BLOCKED] \"" << v.parts[partIdx].name << "\" is the service/problem "
+                                "the customer booked at their appointment. Workshop staff cannot change its cost "
+                                "or description here - only the Appointment module can modify what was booked.\n" << Color::RESET;
+                            pauseConsole();
+                            continue;
+                        }
+
+                        PartItem& target = v.parts[partIdx];
+                        std::cout << Color::CYAN << "\n--- EDIT ITEM: " << Color::BRIGHT_WHITE << target.name << Color::CYAN << " (Qty " << target.quantity
+                            << " x RM " << std::fixed << std::setprecision(2) << target.unitPrice << ") ---\n" << Color::RESET
+                            << Color::BRIGHT_CYAN << "1. Edit Quantity\n"
+                            << Color::BRIGHT_CYAN << "2. Edit Unit Price\n"
+                            << Color::BRIGHT_CYAN << "3. Edit Description\n"
+                            << Color::BRIGHT_RED << "4. Remove Item\n"
+                            << Color::BRIGHT_YELLOW << "Choice: " << Color::RESET;
 
                         int subChoice = 0;
                         if (std::cin >> subChoice) {
                             if (subChoice == 1) {
-                                double newPrice = 0.0;
-                                std::cout << "Enter New Price: RM ";
-                                if (std::cin >> newPrice && newPrice >= 0.0) {
-                                    v.parts[partIdx].price = newPrice;
+                                int newQty = 0;
+                                std::cout << Color::BRIGHT_YELLOW << "Enter New Quantity: " << Color::RESET;
+                                if (std::cin >> newQty && newQty > 0) {
+                                    target.quantity = newQty;
+                                    target.price = target.quantity * target.unitPrice;
+                                }
+                                else {
+                                    std::cout << Color::BRIGHT_RED << "Invalid quantity - no change made.\n" << Color::RESET;
+                                    clearCinError();
                                 }
                             }
                             else if (subChoice == 2) {
-                                std::cout << "Enter New Name: ";
-                                std::cin.ignore(1000, '\n');
-                                std::getline(std::cin, v.parts[partIdx].name);
+                                double newUnitPrice = 0.0;
+                                std::cout << Color::BRIGHT_YELLOW << "Enter New Unit Price: RM " << Color::RESET;
+                                if (std::cin >> newUnitPrice && newUnitPrice >= 0.0) {
+                                    target.unitPrice = newUnitPrice;
+                                    target.price = target.quantity * target.unitPrice;
+                                }
+                                else {
+                                    std::cout << Color::BRIGHT_RED << "Invalid price - no change made.\n" << Color::RESET;
+                                    clearCinError();
+                                }
                             }
                             else if (subChoice == 3) {
+                                std::cout << Color::BRIGHT_YELLOW << "Enter New Name: " << Color::RESET;
+                                std::cin.ignore(1000, '\n');
+                                std::getline(std::cin, target.name);
+                            }
+                            else if (subChoice == 4) {
                                 v.parts.erase(v.parts.begin() + partIdx);
                             }
                         }
@@ -393,77 +490,92 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
 
                 } while (choice != 0);
 
-                std::cout << "\n========================================\n";
-                std::cout << "   FINAL UPDATED TOTALS FOR " << v.licensePlate << "\n";
-                std::cout << "========================================\n";
-                std::cout << "Parts Subtotal (Appointment Included) : RM " << std::fixed << std::setprecision(2) << v.partsCost << "\n";
-                std::cout << "Labor Subtotal                         : RM " << v.laborCost << "\n";
-                std::cout << "TOTAL COST                             : RM " << v.currentServiceCost << "\n";
+                std::cout << Color::CYAN << "\n========================================\n" << Color::RESET
+                    << Color::BRIGHT_YELLOW << Color::BOLD << "   FINAL UPDATED TOTALS FOR " << v.licensePlate << "\n" << Color::RESET
+                    << Color::CYAN << "========================================\n" << Color::RESET
+                    << Color::BRIGHT_CYAN << "Parts Subtotal (Appointment Included) : RM " << Color::BRIGHT_WHITE << std::fixed << std::setprecision(2) << v.partsCost << "\n"
+                    << Color::BRIGHT_CYAN << "Labor Subtotal                         : RM " << Color::BRIGHT_WHITE << v.laborCost << "\n"
+                    << Color::BRIGHT_CYAN << "TOTAL COST                             : RM " << Color::BRIGHT_WHITE << v.currentServiceCost << "\n"
+                    << Color::CYAN << "========================================\n" << Color::RESET;
                 return;
             }
         }
     }
-    std::cout << "Vehicle plate not found in database.\n";
+    std::cout << Color::BRIGHT_RED << "Vehicle plate not found in database.\n" << Color::RESET;
 }
 
 void viewServiceBreakdown(const std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
     std::string plate;
-    std::cout << "\nEnter Vehicle License Plate (or 0 to Return): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Vehicle License Plate (or 0 to Return): " << Color::RESET;
     std::cin >> plate;
     if (plate == "0") return;
 
     plate = toUpper(plate);
 
     if (!hasActiveAppointment(plate, appointments)) {
-        std::cout << "ERROR: Vehicle [" << plate << "] has no active appointment booking!\n";
+        std::cout << Color::BRIGHT_RED << "ERROR: Vehicle [" << plate << "] has no active appointment booking!\n" << Color::RESET;
         return;
     }
 
     for (const auto& c : customers) {
         for (const auto& v : c.vehicles) {
             if (toUpper(v.licensePlate) == plate) {
-                std::cout << "\n========================================\n";
-                std::cout << "        ITEMIZED SERVICE BREAKDOWN      \n";
-                std::cout << "========================================\n";
-                std::cout << "Vehicle Plate : " << v.licensePlate << " (" << v.brand << " " << v.model << ")\n";
-                std::cout << "Owner         : " << c.name << " (Ph: " << c.phone << ")\n";
-                std::cout << "Technician    : " << v.assignedTechnician << "\n";
-                std::cout << "Status        : " << v.status << "\n";
-                std::cout << "----------------------------------------\n";
-                std::cout << "Appointment Items & Parts Log:\n";
+                clearScreen();
+                std::cout << Color::CYAN << "\n========================================\n" << Color::RESET
+                    << Color::BRIGHT_YELLOW << Color::BOLD << "        ITEMIZED SERVICE BREAKDOWN      \n" << Color::RESET
+                    << Color::CYAN << "========================================\n" << Color::RESET
+                    << Color::BRIGHT_CYAN << "Vehicle Plate : " << Color::BRIGHT_WHITE << v.licensePlate << " (" << v.brand << " " << v.model << ")\n"
+                    << Color::BRIGHT_CYAN << "Owner         : " << Color::BRIGHT_WHITE << c.name << " (Ph: " << c.phone << ")\n"
+                    << Color::BRIGHT_CYAN << "Technician    : " << Color::BRIGHT_WHITE << v.assignedTechnician << "\n"
+                    << Color::BRIGHT_CYAN << "Status        : " << Color::BRIGHT_WHITE << v.status << "\n"
+                    << Color::CYAN << "----------------------------------------\n" << Color::RESET
+                    << Color::BRIGHT_YELLOW << "Appointment Items & Parts Log:\n" << Color::RESET;
                 if (v.parts.empty()) {
-                    std::cout << "  (No items logged)\n";
+                    std::cout << Color::LIGHT_GRAY << "  (No items logged)\n" << Color::RESET;
                 }
                 else {
+                    std::cout << Color::BRIGHT_CYAN << std::left
+                        << std::setw(5) << "No."
+                        << std::setw(26) << "Description"
+                        << std::setw(10) << "Type"
+                        << std::setw(6) << "Qty"
+                        << std::setw(12) << "Unit(RM)"
+                        << "Total(RM)\n" << Color::RESET
+                        << Color::CYAN << "----------------------------------------\n" << Color::RESET;
                     for (size_t i = 0; i < v.parts.size(); ++i) {
-                        std::cout << "  " << (i + 1) << ". " << v.parts[i].name
-                            << " (RM " << std::fixed << std::setprecision(2) << v.parts[i].price << ")\n";
+                        const PartItem& p = v.parts[i];
+                        std::cout << Color::BRIGHT_WHITE << std::left
+                            << std::setw(5) << (i + 1)
+                            << std::setw(26) << shortenText(p.name)
+                            << std::setw(10) << (p.isFromAppointment ? "Locked" : "Workshop")
+                            << std::setw(6) << p.quantity
+                            << std::setw(12) << std::fixed << std::setprecision(2) << p.unitPrice
+                            << std::fixed << std::setprecision(2) << p.price << "\n" << Color::RESET;
                     }
                 }
-                std::cout << "----------------------------------------\n";
-                std::cout << std::fixed << std::setprecision(2);
-                std::cout << "Parts Subtotal (Appointment Included) : RM " << v.partsCost << "\n";
-                std::cout << "Labor Subtotal                         : RM " << v.laborCost << "\n";
-                std::cout << "TOTAL ACCRUED                          : RM " << v.currentServiceCost << "\n";
-                std::cout << "========================================\n";
+                std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET
+                    << std::fixed << std::setprecision(2)
+                    << Color::BRIGHT_CYAN << "Parts Subtotal (Appointment Included) : RM " << Color::BRIGHT_WHITE << v.partsCost << "\n"
+                    << Color::BRIGHT_CYAN << "Labor Subtotal                         : RM " << Color::BRIGHT_WHITE << v.laborCost << "\n"
+                    << Color::BRIGHT_CYAN << "TOTAL ACCRUED                          : RM " << Color::BRIGHT_WHITE << v.currentServiceCost << "\n"
+                    << Color::CYAN << "========================================\n" << Color::RESET;
                 return;
             }
         }
     }
-    std::cout << "Vehicle plate not found in database.\n";
+    std::cout << Color::BRIGHT_RED << "Vehicle plate not found in database.\n" << Color::RESET;
 }
 
 void displayWorkshopVehicle(const std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
-    std::cout << "\n--- DASHBOARD VIEW OPTIONS ---\n";
-    std::cout << "1. View All Vehicles with Active Appointments\n";
-    std::cout << "2. Filter by Status (Awaiting Parts / In Progress / Ready)\n";
-    std::cout << "3. Filter by Technician\n";
-    std::cout << "Choice: ";
+    std::cout << Color::CYAN << "\n--- DASHBOARD VIEW OPTIONS ---\n" << Color::RESET
+        << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "View All Vehicles with Active Appointments\n"
+        << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Filter by Status (Awaiting Parts / In Progress / Ready)\n"
+        << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Filter by Technician\n"
+        << Color::BRIGHT_YELLOW << "Choice: " << Color::RESET;
 
     int filterChoice = 1;
     if (!(std::cin >> filterChoice)) {
-        std::cin.clear();
-        std::cin.ignore(1000, '\n');
+        clearCinError();
         filterChoice = 1;
     }
 
@@ -471,7 +583,7 @@ void displayWorkshopVehicle(const std::vector<Customer>& customers, const std::v
     std::string targetTech = "";
 
     if (filterChoice == 2) {
-        std::cout << "1. Awaiting Parts | 2. In Progress | 3. Ready for Pickup: ";
+        std::cout << Color::BRIGHT_YELLOW << "1. Awaiting Parts | 2. In Progress | 3. Ready for Pickup: " << Color::RESET;
         int sChoice;
         std::cin >> sChoice;
         if (sChoice == 1) targetStatus = "Awaiting Parts";
@@ -479,19 +591,20 @@ void displayWorkshopVehicle(const std::vector<Customer>& customers, const std::v
         else if (sChoice == 3) targetStatus = "Ready for Pickup";
     }
     else if (filterChoice == 3) {
-        std::cout << "Enter Technician Name to filter: ";
+        std::cout << Color::BRIGHT_YELLOW << "Enter Technician Name to filter: " << Color::RESET;
         std::cin.ignore(1000, '\n');
         std::getline(std::cin, targetTech);
     }
 
-    std::cout << "\n----------------------------------------------------------------------------------------------------\n";
-    std::cout << std::left << std::setw(12) << "Plate"
+    clearScreen();
+    std::cout << Color::CYAN << "\n----------------------------------------------------------------------------------------------------\n" << Color::RESET
+        << Color::BRIGHT_CYAN << std::left << std::setw(12) << "Plate"
         << std::setw(16) << "Vehicle"
         << std::setw(18) << "Status"
         << std::setw(18) << "Technician"
         << std::setw(18) << "Owner"
-        << "Accrued Cost (RM)\n";
-    std::cout << "----------------------------------------------------------------------------------------------------\n";
+        << "Accrued Cost (RM)\n"
+        << Color::CYAN << "----------------------------------------------------------------------------------------------------\n" << Color::RESET;
 
     bool empty = true;
     for (const auto& c : customers) {
@@ -504,23 +617,23 @@ void displayWorkshopVehicle(const std::vector<Customer>& customers, const std::v
             if (!targetTech.empty() && toUpper(v.assignedTechnician).find(toUpper(targetTech)) == std::string::npos) continue;
 
             empty = false;
-            std::cout << std::left << std::setw(12) << v.licensePlate
+            std::cout << Color::BRIGHT_WHITE << std::left << std::setw(12) << v.licensePlate
                 << std::setw(16) << (v.brand + " " + v.model)
                 << std::setw(18) << v.status
                 << std::setw(18) << v.assignedTechnician
                 << std::setw(18) << c.name
-                << std::fixed << std::setprecision(2) << v.currentServiceCost << "\n";
+                << std::fixed << std::setprecision(2) << v.currentServiceCost << "\n" << Color::RESET;
         }
     }
     if (empty) {
-        std::cout << "No active appointment vehicles currently found in workshop.\n";
+        std::cout << Color::BRIGHT_YELLOW << "No active appointment vehicles currently found in workshop.\n" << Color::RESET;
     }
 }
 
 void checkServiceReminders(const std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
-    std::cout << "\n=======================================================\n";
-    std::cout << "        AUTOMATED SERVICE REMINDER DASHBOARD           \n";
-    std::cout << "=======================================================\n";
+    std::cout << Color::CYAN << "\n=======================================================\n" << Color::RESET
+        << Color::BRIGHT_YELLOW << Color::BOLD << "        AUTOMATED SERVICE REMINDER DASHBOARD           \n" << Color::RESET
+        << Color::CYAN << "=======================================================\n" << Color::RESET;
 
     std::string today = getTodayDate();
     bool overdueFound = false;
@@ -532,26 +645,27 @@ void checkServiceReminders(const std::vector<Customer>& customers, const std::ve
             }
 
             if (v.lastServiceDate == "N/A" || v.lastServiceDate < today) {
-                std::cout << "[OVERDUE FLAG] " << c.name << " (" << c.phone << ")"
+                std::cout << Color::BRIGHT_RED << "[OVERDUE FLAG] " << Color::BRIGHT_WHITE << c.name << " (" << c.phone << ")"
                     << " | Car: " << v.licensePlate << " (" << v.brand << ")"
-                    << " | Last Serviced: " << v.lastServiceDate << "\n";
+                    << " | Last Serviced: " << v.lastServiceDate << "\n" << Color::RESET;
                 overdueFound = true;
             }
         }
     }
-    if (!overdueFound) std::cout << "All active appointment vehicles are up to date on service schedules!\n";
+    if (!overdueFound) std::cout << Color::BRIGHT_CYAN << "All active appointment vehicles are up to date on service schedules!\n" << Color::RESET;
 }
 
 void searchVehicleHistory(const std::vector<Customer>& customers) {
     std::string keyword;
-    std::cout << "\nEnter keyword to search (Plate, Brand, or Model): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter keyword to search (Plate, Brand, or Model): " << Color::RESET;
     std::cin.ignore(1000, '\n');
     std::getline(std::cin, keyword);
     keyword = toUpper(keyword);
 
-    std::cout << "\n========================================\n";
-    std::cout << "          VEHICLE SEARCH RESULTS         \n";
-    std::cout << "========================================\n";
+    clearScreen();
+    std::cout << Color::CYAN << "\n========================================\n" << Color::RESET
+        << Color::BRIGHT_YELLOW << Color::BOLD << "          VEHICLE SEARCH RESULTS         \n" << Color::RESET
+        << Color::CYAN << "========================================\n" << Color::RESET;
 
     bool found = false;
     for (const auto& c : customers) {
@@ -560,80 +674,18 @@ void searchVehicleHistory(const std::vector<Customer>& customers) {
                 toUpper(v.brand).find(keyword) != std::string::npos ||
                 toUpper(v.model).find(keyword) != std::string::npos) {
                 found = true;
-                std::cout << "Plate         : " << v.licensePlate << "\n";
-                std::cout << "Make/Model    : " << v.brand << " " << v.model << "\n";
-                std::cout << "Owner         : " << c.name << " (Ph: " << c.phone << ")\n";
-                std::cout << "Current Status: " << v.status << "\n";
-                std::cout << "Last Serviced : " << v.lastServiceDate << "\n";
-                std::cout << "----------------------------------------\n";
+                std::cout << Color::BRIGHT_CYAN << "Plate         : " << Color::BRIGHT_WHITE << v.licensePlate << "\n"
+                    << Color::BRIGHT_CYAN << "Make/Model    : " << Color::BRIGHT_WHITE << v.brand << " " << v.model << "\n"
+                    << Color::BRIGHT_CYAN << "Owner         : " << Color::BRIGHT_WHITE << c.name << " (Ph: " << c.phone << ")\n"
+                    << Color::BRIGHT_CYAN << "Current Status: " << Color::BRIGHT_WHITE << v.status << "\n"
+                    << Color::BRIGHT_CYAN << "Last Serviced : " << Color::BRIGHT_WHITE << v.lastServiceDate << "\n"
+                    << Color::CYAN << "----------------------------------------\n" << Color::RESET;
             }
         }
     }
     if (!found) {
-        std::cout << "No matching vehicles found for keyword: " << keyword << "\n";
+        std::cout << Color::BRIGHT_YELLOW << "No matching vehicles found for keyword: " << keyword << "\n" << Color::RESET;
     }
-}
-
-void updateAllVehicleStatuses(std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
-    std::string targetStatus;
-    std::cout << "\n--- BULK UPDATE WORKSHOP STATUS ---\n";
-    std::cout << "Select current status to target:\n";
-    std::cout << "1. Awaiting Parts\n";
-    std::cout << "2. In Progress\n";
-    std::cout << "Choice: ";
-
-    int choice;
-    if (!(std::cin >> choice)) {
-        std::cin.clear();
-        std::cin.ignore(1000, '\n');
-        return;
-    }
-
-    if (choice == 1) targetStatus = "Awaiting Parts";
-    else if (choice == 2) targetStatus = "In Progress";
-    else {
-        std::cout << "Invalid selection.\n";
-        return;
-    }
-
-    std::cout << "Select new status to apply:\n";
-    std::cout << "1. In Progress\n";
-    std::cout << "2. Ready for Pickup\n";
-    std::cout << "Choice: ";
-
-    int newChoice;
-    if (!(std::cin >> newChoice)) {
-        std::cin.clear();
-        std::cin.ignore(1000, '\n');
-        return;
-    }
-
-    std::string newStatus = "";
-    if (newChoice == 1) newStatus = "In Progress";
-    else if (newChoice == 2) newStatus = "Ready for Pickup";
-    else {
-        std::cout << "Invalid selection.\n";
-        return;
-    }
-
-    int updatedCount = 0;
-    for (auto& c : customers) {
-        for (auto& v : c.vehicles) {
-            if (hasActiveAppointment(v.licensePlate, appointments) && v.status == targetStatus) {
-                v.status = newStatus;
-                if (newStatus == "Ready for Pickup") {
-                    v.lastServiceDate = getTodayDate();
-                    if (v.currentServiceCost == 0.0) {
-                        syncAppointmentToPartsCost(v, appointments);
-                    }
-                }
-                updatedCount++;
-            }
-        }
-    }
-
-    std::cout << "Successfully updated " << updatedCount << " vehicle(s) from ["
-        << targetStatus << "] to [" << newStatus << "]!\n";
 }
 
 void resetVehicleServiceData(Vehicle& vehicle) {

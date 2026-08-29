@@ -1,3 +1,5 @@
-01123456789|BJE427|PROTON|SAGE|2026-08-25|In Service Queue|KEN|270|0|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] | (2) [Car Problems / Repair Issues] Engine Problems -> Engine Cannot Start |270
-01123456789|HAH339|GUD|GUD|2026-08-25|Completed||0|0|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] | (2) [Scheduled Maintenance / Servicing] Full Periodic Service -> Standard Comprehensive Service [$250.00] |0
-1234567890|ABC123|PERODUA|MYVI|2026-08-24|Completed||0|0|||0
+01123456789|BJE427|PROTON|SAGE|2026-08-29|Ready for Pickup||510|100|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] | (2) [Car Problems / Repair Issues] Engine Problems -> Engine Cannot Start |610|
+01123456789|HAH339|GUD|GUD|2026-08-29|Completed||0|0|(1) [Car Problems / Repair Issues] Brake Problems -> Brake Pedal Soft / Spongy | (2) [Car Problems / Repair Issues] Tyre & Wheel Problems -> Tyre Pressure Warning |0|
+01123456789|BBC223|HONDA|CIVIC|2026-08-28|Ready for Pickup||480|100|(1) [Scheduled Maintenance / Servicing] Interim Maintenance -> Basic Engine Oil & Filter Change [$130.00] | (2) [Scheduled Maintenance / Servicing] Full Periodic Service -> Standard Comprehensive Service [$250.00] |0|
+01123456789|EFG456|HONDA|CIVIC|N/A|Awaiting Parts|Unassigned|0|0|||0|
+1234567890|ABC123|PERODUA|MYVI|2026-08-24|Completed||0|0|||0|

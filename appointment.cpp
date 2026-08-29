@@ -11,6 +11,35 @@
 #include <cctype>
 #include <fstream>
 #include <vector>
+#include <cstdlib>
+
+// ANSI Light Color Definitions (No Blue, Green, or Purple)
+namespace Color {
+    const std::string RESET = "\033[0m";
+    const std::string BOLD = "\033[1m";
+    const std::string CYAN = "\033[36m";
+    const std::string BRIGHT_CYAN = "\033[96m";
+    const std::string BRIGHT_YELLOW = "\033[93m";
+    const std::string BRIGHT_WHITE = "\033[97m";
+    const std::string BRIGHT_RED = "\033[91m";
+    const std::string LIGHT_GRAY = "\033[37m";
+}
+
+// Function to clear the console screen cross-platform
+static void clearScreen() {
+#ifdef _WIN32
+    std::system("cls");
+#else
+    std::system("clear");
+#endif
+}
+
+// Function to pause program execution and prompt for Enter key
+static void pause() {
+    std::cout << Color::BRIGHT_YELLOW << "\nPress Enter to continue..." << Color::RESET;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.get();
+}
 
 static void manageAppointmentFromList(std::vector<Appointment*>& foundAppointments,
     std::vector<Appointment>& allAppointments, std::vector<Customer>& customers);
@@ -155,72 +184,84 @@ static std::string getTodayDate() {
 }
 
 static void displayAppointmentRow(const Appointment& a) {
-    std::cout << std::left << std::setw(10) << a.appointmentId
+    std::cout << Color::BRIGHT_WHITE << std::left << std::setw(10) << a.appointmentId
         << std::setw(12) << a.customerId
         << std::setw(12) << a.licensePlate
         << std::setw(14) << a.date
         << std::setw(10) << a.time
-        << (a.isActive ? "Active" : "Inactive") << "\n";
+        << (a.isActive ? (Color::BRIGHT_CYAN + "Active" + Color::RESET) : (Color::BRIGHT_RED + "Inactive" + Color::RESET)) << "\n";
 }
 
 static void displayAppointmentHeader() {
-    std::cout << "\n----------------------------------------------------------------------------------------\n";
-    std::cout << std::left << std::setw(5) << "No."
+    std::cout << Color::CYAN << "\n----------------------------------------------------------------------------------------\n" << Color::RESET;
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << std::left << std::setw(5) << "No."
         << std::setw(10) << "Appt ID"
         << std::setw(12) << "Phone"
         << std::setw(12) << "Plate"
         << std::setw(14) << "Date"
         << std::setw(10) << "Time"
-        << "Status\n";
-    std::cout << "----------------------------------------------------------------------------------------\n";
+        << "Status\n" << Color::RESET;
+    std::cout << Color::CYAN << "----------------------------------------------------------------------------------------\n" << Color::RESET;
 }
 
 void appointmentMenu(std::vector<Appointment>& appointments, std::vector<Customer>& customers) {
     int choice = -1;
     do {
-        std::cout << "\n========================================\n";
-        std::cout << "         APPOINTMENT MANAGEMENT         \n";
-        std::cout << "========================================\n";
-        std::cout << "1. Book Appointment\n";
-        std::cout << "2. View Appointments\n";
-        std::cout << "3. Search Appointment\n";
-        std::cout << "4. Reschedule Appointment\n";
-        std::cout << "5. Cancel Appointment\n";
-        std::cout << "0. Return to Main Menu\n";
-        std::cout << "----------------------------------------\n";
-        std::cout << "Enter choice: ";
+        clearScreen();
+        std::cout << Color::CYAN << "\n========================================\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "         APPOINTMENT MANAGEMENT         \n" << Color::RESET;
+        std::cout << Color::CYAN << "========================================\n" << Color::RESET;
+        std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Book Appointment\n";
+        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "View Appointments\n";
+        std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Search Appointment\n";
+        std::cout << Color::BRIGHT_CYAN << "4. " << Color::BRIGHT_WHITE << "Reschedule Appointment\n";
+        std::cout << Color::BRIGHT_CYAN << "5. " << Color::BRIGHT_WHITE << "Cancel Appointment\n";
+        std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Return to Main Menu\n";
+        std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
 
         if (!(std::cin >> choice)) {
-            std::cout << "Invalid input! Please enter a number.\n";
+            std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
             std::cin.clear();
             std::cin.ignore(1000, '\n');
+            pause();
             continue;
         }
 
         switch (choice) {
         case 1:
+            clearScreen();
             bookAppointment(appointments, customers);
             saveAppointmentsToFile(appointments);
+            pause();
             break;
         case 2:
+            clearScreen();
             viewAppointmentsMenu(appointments, customers);
             break;
         case 3:
+            clearScreen();
             searchAppointment(appointments);
+            pause();
             break;
         case 4:
+            clearScreen();
             rescheduleAppointment(appointments);
             saveAppointmentsToFile(appointments);
+            pause();
             break;
         case 5:
+            clearScreen();
             cancelAppointment(appointments, customers);
             saveAppointmentsToFile(appointments);
+            pause();
             break;
         case 0:
-            std::cout << "Returning to Main Menu...\n";
+            std::cout << Color::BRIGHT_CYAN << "Returning to Main Menu...\n" << Color::RESET;
             break;
         default:
-            std::cout << "Invalid choice! Please select an option between 0 and 5.\n";
+            std::cout << Color::BRIGHT_RED << "Invalid choice! Please select an option between 0 and 5.\n" << Color::RESET;
+            pause();
         }
     } while (choice != 0);
 }
@@ -236,7 +277,7 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     app.totalFee = 0.0;
     app.isActive = true;
 
-    std::cout << "\nEnter Customer Phone Number (or 0 to Return to Main Menu): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Customer Phone Number (or 0 to Return to Main Menu): " << Color::RESET;
     std::cin >> app.customerId;
     if (app.customerId == "0") return;
 
@@ -250,39 +291,39 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         }
     }
     if (!targetCustomer) {
-        std::cout << "ERROR: Customer phone number not found!\n";
+        std::cout << Color::BRIGHT_RED << "ERROR: Customer phone number not found!\n" << Color::RESET;
         return;
     }
 
-    std::cout << "\nCustomer Found: " << targetCustomer->name << " (" << targetCustomer->phone << ")\n";
+    std::cout << Color::BRIGHT_CYAN << "\nCustomer Found: " << Color::BRIGHT_WHITE << targetCustomer->name << " (" << targetCustomer->phone << ")\n" << Color::RESET;
 
     std::string selectedPlate;
     while (true) {
-        std::cout << "\n----------------------------------------\n";
-        std::cout << "SELECT VEHICLE FOR APPOINTMENT:\n";
-        std::cout << "----------------------------------------\n";
+        std::cout << Color::CYAN << "\n----------------------------------------\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "SELECT VEHICLE FOR APPOINTMENT:\n" << Color::RESET;
+        std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
 
         int optionNumber = 1;
         for (const auto& v : targetCustomer->vehicles) {
-            std::cout << optionNumber << ". " << v.licensePlate
+            std::cout << Color::BRIGHT_CYAN << optionNumber << ". " << Color::BRIGHT_WHITE << v.licensePlate
                 << " (" << v.brand << " " << v.model << ")\n";
             optionNumber++;
         }
-        std::cout << optionNumber << ". [+ Add New Vehicle]\n";
-        std::cout << "0. Cancel Appointment\n";
-        std::cout << "----------------------------------------\n";
-        std::cout << "Choice: ";
+        std::cout << Color::BRIGHT_CYAN << optionNumber << ". " << Color::BRIGHT_YELLOW << "[+ Add New Vehicle]\n" << Color::RESET;
+        std::cout << Color::BRIGHT_RED << "0. Cancel Appointment\n" << Color::RESET;
+        std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << "Choice: " << Color::RESET;
 
         int vChoice;
         if (!(std::cin >> vChoice)) {
-            std::cout << "Invalid input! Enter a valid menu option number.\n";
+            std::cout << Color::BRIGHT_RED << "Invalid input! Enter a valid menu option number.\n" << Color::RESET;
             std::cin.clear();
             std::cin.ignore(1000, '\n');
             continue;
         }
 
         if (vChoice == 0) {
-            std::cout << "Appointment booking cancelled.\n";
+            std::cout << Color::BRIGHT_YELLOW << "Appointment booking cancelled.\n" << Color::RESET;
             return;
         }
 
@@ -294,15 +335,15 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
             Vehicle newV;
 
             while (true) {
-                std::cout << "\nEnter New Vehicle License Plate: ";
+                std::cout << Color::BRIGHT_YELLOW << "\nEnter New Vehicle License Plate: " << Color::RESET;
                 std::cin >> newV.licensePlate;
                 newV.licensePlate = toUpper(newV.licensePlate);
 
                 if (!isValidLicensePlate(newV.licensePlate)) {
-                    std::cout << "ERROR: License plate must contain at least 1 letter, at least 1 digit, and no spaces/special characters!\n";
+                    std::cout << Color::BRIGHT_RED << "ERROR: License plate must contain at least 1 letter, at least 1 digit, and no spaces/special characters!\n" << Color::RESET;
                 }
                 else if (isPlateTaken(customers, newV.licensePlate)) {
-                    std::cout << "ERROR: This license plate is already registered to another customer!\n";
+                    std::cout << Color::BRIGHT_RED << "ERROR: This license plate is already registered to another customer!\n" << Color::RESET;
                 }
                 else {
                     break;
@@ -310,11 +351,11 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
             }
 
             std::cin.ignore(1000, '\n');
-            std::cout << "Enter Vehicle Brand (e.g. Honda): ";
+            std::cout << Color::BRIGHT_YELLOW << "Enter Vehicle Brand (e.g. Honda): " << Color::RESET;
             std::getline(std::cin, newV.brand);
             newV.brand = toUpper(newV.brand);
 
-            std::cout << "Enter Vehicle Model (e.g. Civic): ";
+            std::cout << Color::BRIGHT_YELLOW << "Enter Vehicle Model (e.g. Civic): " << Color::RESET;
             std::getline(std::cin, newV.model);
             newV.model = toUpper(newV.model);
 
@@ -329,11 +370,11 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
             saveCustomersToFile(customers);
 
             selectedPlate = newV.licensePlate;
-            std::cout << "\nVehicle [" << selectedPlate << "] registered and selected successfully!\n";
+            std::cout << Color::BRIGHT_CYAN << "\nVehicle [" << selectedPlate << "] registered and selected successfully!\n" << Color::RESET;
             break;
         }
         else {
-            std::cout << "Invalid selection! Please select a number from the menu.\n";
+            std::cout << Color::BRIGHT_RED << "Invalid selection! Please select a number from the menu.\n" << Color::RESET;
         }
     }
 
@@ -342,22 +383,22 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     // --- ENFORCE: only ONE active appointment allowed per vehicle at a time ---
     for (const auto& a : appointments) {
         if (a.isActive && a.licensePlate == app.licensePlate) {
-            std::cout << "\nERROR: This vehicle [" << app.licensePlate << "] already has an active appointment ("
-                << a.appointmentId << ", " << a.date << " @ " << a.time << ").\n";
-            std::cout << "Please reschedule/cancel the existing appointment before booking a new one.\n";
+            std::cout << Color::BRIGHT_RED << "\nERROR: This vehicle [" << app.licensePlate << "] already has an active appointment ("
+                << a.appointmentId << ", " << a.date << " @ " << a.time << ").\n" << Color::RESET;
+            std::cout << Color::BRIGHT_YELLOW << "Please reschedule/cancel the existing appointment before booking a new one.\n" << Color::RESET;
             return;
         }
     }
 
     std::string today = getTodayDate();
     while (true) {
-        std::cout << "Enter Service Date (YYYY-MM-DD, Today or Future): ";
+        std::cout << Color::BRIGHT_YELLOW << "Enter Service Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
         std::cin >> app.date;
         if (!isValidDate(app.date)) {
-            std::cout << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n" << Color::RESET;
         }
         else if (app.date < today) {
-            std::cout << "ERROR: Appointment date cannot be in the past! Current date is: " << today << "\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Appointment date cannot be in the past! Current date is: " << today << "\n" << Color::RESET;
         }
         else {
             break;
@@ -365,10 +406,10 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     }
 
     while (true) {
-        std::cout << "Enter Time Slot (HH:MM in 24-hr format): ";
+        std::cout << Color::BRIGHT_YELLOW << "Enter Time Slot (HH:MM in 24-hr format): " << Color::RESET;
         std::cin >> app.time;
         if (!isValidTime(app.time)) {
-            std::cout << "ERROR: Invalid time format! Use HH:MM (00:00 to 23:59).\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Invalid time format! Use HH:MM (00:00 to 23:59).\n" << Color::RESET;
         }
         else {
             break;
@@ -377,12 +418,12 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
 
     for (const auto& a : appointments) {
         if (a.isActive && a.date == app.date && a.time == app.time) {
-            std::cout << "ERROR: Slot already booked!\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Slot already booked!\n" << Color::RESET;
             return;
         }
     }
 
-    // --- TWO-TIERED BOOKING CATALOG - Problems (NO price) vs Services (WITH price) ---
+    // --- TWO-TIERED BOOKING CATALOG ---
     std::vector<MainBookingType> mainTypes = {
         {
             "Car Problems / Repair Issues",
@@ -492,44 +533,44 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     bool doneSelecting = false;
 
     while (!doneSelecting) {
-        std::cout << "\n========================================================================\n";
-        std::cout << "                  SELECT PROBLEM(S) OR SERVICE(S)                      \n";
-        std::cout << "========================================================================\n";
+        std::cout << Color::CYAN << "\n========================================================================\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "                  SELECT PROBLEM(S) OR SERVICE(S)                      \n" << Color::RESET;
+        std::cout << Color::CYAN << "========================================================================\n" << Color::RESET;
 
         if (!selectedItems.empty()) {
-            std::cout << "CURRENTLY SELECTED (" << selectedItems.size() << " item(s)):\n";
+            std::cout << Color::BRIGHT_CYAN << "CURRENTLY SELECTED (" << selectedItems.size() << " item(s)):\n" << Color::RESET;
             for (size_t i = 0; i < selectedItems.size(); ++i) {
                 if (selectedItems[i].fee > 0) {
-                    std::cout << "  " << (i + 1) << ". " << selectedItems[i].fullDescription
-                        << " [Fee: $" << std::fixed << std::setprecision(2) << selectedItems[i].fee << "]\n";
+                    std::cout << "  " << (i + 1) << ". " << Color::BRIGHT_WHITE << selectedItems[i].fullDescription
+                        << Color::BRIGHT_YELLOW << " [Fee: $" << std::fixed << std::setprecision(2) << selectedItems[i].fee << "]\n" << Color::RESET;
                 }
                 else {
-                    std::cout << "  " << (i + 1) << ". " << selectedItems[i].fullDescription << "\n";
+                    std::cout << "  " << (i + 1) << ". " << Color::BRIGHT_WHITE << selectedItems[i].fullDescription << "\n" << Color::RESET;
                 }
             }
-            std::cout << "  TOTAL ESTIMATED SERVICE FEE: $" << std::fixed << std::setprecision(2) << totalServiceFee << "\n";
-            std::cout << "------------------------------------------------------------------------\n";
+            std::cout << Color::BRIGHT_YELLOW << "  TOTAL ESTIMATED SERVICE FEE: $" << std::fixed << std::setprecision(2) << totalServiceFee << "\n" << Color::RESET;
+            std::cout << Color::CYAN << "------------------------------------------------------------------------\n" << Color::RESET;
         }
 
-        std::cout << "1. Car Problems / Repair Issues\n";
-        std::cout << "2. Scheduled Maintenance / Servicing\n";
+        std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Car Problems / Repair Issues\n";
+        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Scheduled Maintenance / Servicing\n";
         if (!selectedItems.empty()) {
-            std::cout << "3. [DONE] Finish Selection and Proceed ($" << std::fixed << std::setprecision(2) << totalServiceFee << " total)\n";
+            std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_YELLOW << "[DONE] Finish Selection and Proceed ($" << std::fixed << std::setprecision(2) << totalServiceFee << " total)\n" << Color::RESET;
         }
-        std::cout << "0. Cancel Booking\n";
-        std::cout << "------------------------------------------------------------------------\n";
-        std::cout << "Select Option: ";
+        std::cout << Color::BRIGHT_RED << "0. Cancel Booking\n" << Color::RESET;
+        std::cout << Color::CYAN << "------------------------------------------------------------------------\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << "Select Option: " << Color::RESET;
 
         int mainChoice;
         if (!(std::cin >> mainChoice)) {
-            std::cout << "Invalid input! Please enter a number.\n";
+            std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
             std::cin.clear();
             std::cin.ignore(1000, '\n');
             continue;
         }
 
         if (mainChoice == 0) {
-            std::cout << "Appointment booking cancelled.\n";
+            std::cout << Color::BRIGHT_YELLOW << "Appointment booking cancelled.\n" << Color::RESET;
             return;
         }
 
@@ -542,19 +583,19 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
             const auto& selectedMain = mainTypes[mainChoice - 1];
 
             while (true) {
-                std::cout << "\n========================================================================\n";
-                std::cout << "    CATEGORIES FOR: " << selectedMain.typeName << "\n";
-                std::cout << "========================================================================\n";
+                std::cout << Color::CYAN << "\n========================================================================\n" << Color::RESET;
+                std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "    CATEGORIES FOR: " << selectedMain.typeName << "\n" << Color::RESET;
+                std::cout << Color::CYAN << "========================================================================\n" << Color::RESET;
                 for (size_t c = 0; c < selectedMain.categories.size(); ++c) {
-                    std::cout << (c + 1) << ". " << selectedMain.categories[c].categoryName << "\n";
+                    std::cout << Color::BRIGHT_CYAN << (c + 1) << ". " << Color::BRIGHT_WHITE << selectedMain.categories[c].categoryName << "\n";
                 }
-                std::cout << "0. Back to Main Selection\n";
-                std::cout << "------------------------------------------------------------------------\n";
-                std::cout << "Select Category (1 - " << selectedMain.categories.size() << "): ";
+                std::cout << Color::BRIGHT_RED << "0. Back to Main Selection\n" << Color::RESET;
+                std::cout << Color::CYAN << "------------------------------------------------------------------------\n" << Color::RESET;
+                std::cout << Color::BRIGHT_YELLOW << "Select Category (1 - " << selectedMain.categories.size() << "): " << Color::RESET;
 
                 int catChoice;
                 if (!(std::cin >> catChoice)) {
-                    std::cout << "Invalid input! Please enter a number.\n";
+                    std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
                     std::cin.clear();
                     std::cin.ignore(1000, '\n');
                     continue;
@@ -566,27 +607,27 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
                     const auto& selectedCat = selectedMain.categories[catChoice - 1];
 
                     while (true) {
-                        std::cout << "\n------------------------------------------------------------------------\n";
-                        std::cout << "    SPECIFIC OPTIONS FOR: " << selectedCat.categoryName << "\n";
-                        std::cout << "------------------------------------------------------------------------\n";
+                        std::cout << Color::CYAN << "\n------------------------------------------------------------------------\n" << Color::RESET;
+                        std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "    SPECIFIC OPTIONS FOR: " << selectedCat.categoryName << "\n" << Color::RESET;
+                        std::cout << Color::CYAN << "------------------------------------------------------------------------\n" << Color::RESET;
                         for (size_t s = 0; s < selectedCat.subOptions.size(); ++s) {
                             if (selectedCat.subOptions[s].fee > 0) {
-                                std::cout << (s + 1) << ". " << selectedCat.subOptions[s].name
-                                    << " [Fee: $" << std::fixed << std::setprecision(2) << selectedCat.subOptions[s].fee << "]\n"
-                                    << "    Desc: " << selectedCat.subOptions[s].description << "\n";
+                                std::cout << Color::BRIGHT_CYAN << (s + 1) << ". " << Color::BRIGHT_WHITE << selectedCat.subOptions[s].name
+                                    << Color::BRIGHT_YELLOW << " [Fee: $" << std::fixed << std::setprecision(2) << selectedCat.subOptions[s].fee << "]\n"
+                                    << Color::LIGHT_GRAY << "    Desc: " << selectedCat.subOptions[s].description << "\n";
                             }
                             else {
-                                std::cout << (s + 1) << ". " << selectedCat.subOptions[s].name << "\n"
-                                    << "    Desc: " << selectedCat.subOptions[s].description << "\n";
+                                std::cout << Color::BRIGHT_CYAN << (s + 1) << ". " << Color::BRIGHT_WHITE << selectedCat.subOptions[s].name << "\n"
+                                    << Color::LIGHT_GRAY << "    Desc: " << selectedCat.subOptions[s].description << "\n";
                             }
-                            std::cout << "------------------------------------------------------------------------\n";
+                            std::cout << Color::CYAN << "------------------------------------------------------------------------\n" << Color::RESET;
                         }
-                        std::cout << "0. Back to Categories\n";
-                        std::cout << "Select Specific Issue / Service to ADD: ";
+                        std::cout << Color::BRIGHT_RED << "0. Back to Categories\n" << Color::RESET;
+                        std::cout << Color::BRIGHT_YELLOW << "Select Specific Issue / Service to ADD: " << Color::RESET;
 
                         int subChoice;
                         if (!(std::cin >> subChoice)) {
-                            std::cout << "Invalid input! Please enter a number.\n";
+                            std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
                             std::cin.clear();
                             std::cin.ignore(1000, '\n');
                             continue;
@@ -608,32 +649,32 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
                             }
 
                             if (exists) {
-                                std::cout << "\n>>> NOTE: This item is already in your selection list! <<<\n";
+                                std::cout << Color::BRIGHT_RED << "\n>>> NOTE: This item is already in your selection list! <<<\n" << Color::RESET;
                             }
                             else {
                                 selectedItems.push_back({ itemStr, sub.fee });
                                 totalServiceFee += sub.fee;
                                 if (sub.fee > 0) {
-                                    std::cout << "\n>>> ADDED SUCCESSFULLY: " << itemStr << " ($" << std::fixed << std::setprecision(2) << sub.fee << ") <<<\n";
+                                    std::cout << Color::BRIGHT_CYAN << "\n>>> ADDED SUCCESSFULLY: " << itemStr << " ($" << std::fixed << std::setprecision(2) << sub.fee << ") <<<\n" << Color::RESET;
                                 }
                                 else {
-                                    std::cout << "\n>>> ADDED SUCCESSFULLY: " << itemStr << " <<<\n";
+                                    std::cout << Color::BRIGHT_CYAN << "\n>>> ADDED SUCCESSFULLY: " << itemStr << " <<<\n" << Color::RESET;
                                 }
                             }
                             break;
                         }
                         else {
-                            std::cout << "Invalid selection! Try again.\n";
+                            std::cout << Color::BRIGHT_RED << "Invalid selection! Try again.\n" << Color::RESET;
                         }
                     }
                 }
                 else {
-                    std::cout << "Invalid category selection! Try again.\n";
+                    std::cout << Color::BRIGHT_RED << "Invalid category selection! Try again.\n" << Color::RESET;
                 }
             }
         }
         else {
-            std::cout << "Invalid selection! Please choose a valid option.\n";
+            std::cout << Color::BRIGHT_RED << "Invalid selection! Please choose a valid option.\n" << Color::RESET;
         }
     }
 
@@ -653,7 +694,6 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         }
     }
 
-    // Append total fixed fee summary if there are any services with fees
     if (totalServiceFee > 0) {
         std::stringstream totalStream;
         totalStream << std::fixed << std::setprecision(2) << totalServiceFee;
@@ -663,7 +703,7 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     // --- OPTIONAL REMARK / NOTE INPUT ---
     std::cin.ignore(1000, '\n');
     std::string remarkInput = "";
-    std::cout << "\nEnter Additional Remarks / Symptoms Description (Press Enter to skip): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Additional Remarks / Symptoms Description (Press Enter to skip): " << Color::RESET;
     std::getline(std::cin, remarkInput);
 
     if (!remarkInput.empty()) {
@@ -673,15 +713,9 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         app.serviceType = combinedServices;
     }
 
-    // --- PASS COST AND STATUS DATA TO VEHICLE PART & SAVE CUSTOMER DATA ---
-    // NOTE: Booked services/problems are LABOR (scheduled work), not physical
-    // parts, so both the fee AND the service name belong with laborCost /
-    // lastServiceDescription. partsCost/lastPartsUsed stay untouched here -
-    // those are only ever set later in service.cpp when a technician logs an
-    // actual replaced part during the job.
     for (auto& v : targetCustomer->vehicles) {
         if (v.licensePlate == app.licensePlate) {
-            v.laborCost += totalServiceFee;
+            v.partsCost += totalServiceFee;
             v.currentServiceCost += totalServiceFee;
             v.lastServiceDescription = combinedServices;
             v.status = "In Service Queue";
@@ -695,34 +729,31 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     app.isActive = true;
     appointments.push_back(app);
 
-    std::cout << "\nBooking successful! Vehicle service cost updated and passed to Billing.\n";
+    std::cout << Color::BRIGHT_CYAN << "\nBooking successful! Vehicle service cost updated and passed to Billing.\n" << Color::RESET;
     generateBookingSlip(app);
 }
 
 void generateBookingSlip(const Appointment& app) {
-    std::cout << "\n========================================\n";
-    std::cout << "         APPOINTMENT CONFIRMATION       \n";
-    std::cout << "========================================\n";
-    std::cout << "Booking ID      : " << app.appointmentId << "\n";
-    std::cout << "Customer Phone  : " << app.customerId << "\n";
-    std::cout << "Vehicle Plate   : " << app.licensePlate << "\n";
-    std::cout << "Schedule        : " << app.date << " @ " << app.time << "\n";
-    std::cout << "----------------------------------------\n";
-    std::cout << "Selected Items  :\n";
+    std::cout << Color::CYAN << "\n========================================\n" << Color::RESET;
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "         APPOINTMENT CONFIRMATION       \n" << Color::RESET;
+    std::cout << Color::CYAN << "========================================\n" << Color::RESET;
+    std::cout << Color::BRIGHT_CYAN << "Booking ID      : " << Color::BRIGHT_WHITE << app.appointmentId << "\n";
+    std::cout << Color::BRIGHT_CYAN << "Customer Phone  : " << Color::BRIGHT_WHITE << app.customerId << "\n";
+    std::cout << Color::BRIGHT_CYAN << "Vehicle Plate   : " << Color::BRIGHT_WHITE << app.licensePlate << "\n";
+    std::cout << Color::BRIGHT_CYAN << "Schedule        : " << Color::BRIGHT_WHITE << app.date << " @ " << app.time << "\n";
+    std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+    std::cout << Color::BRIGHT_YELLOW << "Selected Items  :\n" << Color::RESET;
 
-    // Parse and display each item on a separate line
     std::string serviceType = app.serviceType;
     size_t pos = 0;
     int itemCount = 0;
 
-    // Find each numbered item
     while (true) {
         size_t startPos = serviceType.find("(" + std::to_string(itemCount + 1) + ")", pos);
         if (startPos == std::string::npos) break;
 
         size_t endPos = serviceType.find(" | ", startPos);
         if (endPos == std::string::npos) {
-            // Last item - check for {Total Service Fee} or end of string
             size_t totalPos = serviceType.find(" {Total Service Fee:", startPos);
             if (totalPos != std::string::npos) {
                 endPos = totalPos;
@@ -733,91 +764,94 @@ void generateBookingSlip(const Appointment& app) {
         }
 
         std::string item = serviceType.substr(startPos, endPos - startPos);
-        // Remove the "(#) " prefix
         size_t prefixEnd = item.find(") ");
         if (prefixEnd != std::string::npos) {
             item = item.substr(prefixEnd + 2);
         }
 
-        // Remove the category prefix (everything before " -> ")
         size_t arrowPos = item.find(" -> ");
         if (arrowPos != std::string::npos) {
-            item = item.substr(arrowPos + 4); // Keep only the item name after " -> "
+            item = item.substr(arrowPos + 4);
         }
 
-        // Check if this item has a price
         size_t pricePos = item.find(" [$");
         if (pricePos != std::string::npos) {
-            // Item has price - show it
-            std::cout << "  " << (itemCount + 1) << ". " << item << "\n";
+            std::cout << "  " << (itemCount + 1) << ". " << Color::BRIGHT_WHITE << item << "\n";
         }
         else {
-            // Problem item - no price
-            std::cout << "  " << (itemCount + 1) << ". " << item << "\n";
+            std::cout << "  " << (itemCount + 1) << ". " << Color::BRIGHT_WHITE << item << "\n";
         }
 
         itemCount++;
-        pos = endPos + 3; // Skip past " | "
+        pos = endPos + 3;
         if (pos >= serviceType.length()) break;
     }
 
-    // Extract and display total fee if present
     size_t totalPos = serviceType.find("{Total Service Fee: $");
     if (totalPos != std::string::npos) {
         size_t endTotal = serviceType.find("}", totalPos);
         if (endTotal != std::string::npos) {
             std::string totalFee = serviceType.substr(totalPos, endTotal - totalPos + 1);
-            std::cout << "----------------------------------------\n";
-            std::cout << "Total Fee       : " << totalFee << "\n";
+            std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+            std::cout << Color::BRIGHT_YELLOW << "Total Fee       : " << totalFee << "\n" << Color::RESET;
         }
     }
 
-    std::cout << "Status          : " << (app.isActive ? "ACTIVE" : "INACTIVE") << "\n";
-    std::cout << "========================================\n";
+    std::cout << Color::BRIGHT_CYAN << "Status          : " << (app.isActive ? (Color::BRIGHT_CYAN + "ACTIVE" + Color::RESET) : (Color::BRIGHT_RED + "INACTIVE" + Color::RESET)) << "\n";
+    std::cout << Color::CYAN << "========================================\n" << Color::RESET;
 }
 
 void viewAppointmentsMenu(std::vector<Appointment>& appointments, std::vector<Customer>& customers) {
     int choice = -1;
     do {
-        std::cout << "\n========================================\n";
-        std::cout << "            VIEW APPOINTMENTS           \n";
-        std::cout << "========================================\n";
-        std::cout << "1. View All Appointments (Sorted by Appt ID)\n";
-        std::cout << "2. View Today's Appointments (Sorted by Time)\n";
-        std::cout << "3. View Appointments by Date (Sorted by Time)\n";
-        std::cout << "0. Return to Appointment Menu\n";
-        std::cout << "----------------------------------------\n";
-        std::cout << "Enter choice: ";
+        clearScreen();
+        std::cout << Color::CYAN << "\n========================================\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "            VIEW APPOINTMENTS           \n" << Color::RESET;
+        std::cout << Color::CYAN << "========================================\n" << Color::RESET;
+        std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "View All Appointments (Sorted by Appt ID)\n";
+        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "View Today's Appointments (Sorted by Time)\n";
+        std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "View Appointments by Date (Sorted by Time)\n";
+        std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Return to Appointment Menu\n";
+        std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
 
         if (!(std::cin >> choice)) {
-            std::cout << "Invalid input!\n";
+            std::cout << Color::BRIGHT_RED << "Invalid input!\n" << Color::RESET;
             std::cin.clear();
             std::cin.ignore(1000, '\n');
+            pause();
             continue;
         }
 
         switch (choice) {
         case 1:
+            clearScreen();
             viewAllAppointments(appointments, customers);
+            pause();
             break;
         case 2:
+            clearScreen();
             viewTodaysAppointments(appointments, customers);
+            pause();
             break;
         case 3:
+            clearScreen();
             viewAppointmentsByDate(appointments, customers);
+            pause();
             break;
         case 0:
-            std::cout << "Returning to Appointment Menu...\n";
+            std::cout << Color::BRIGHT_CYAN << "Returning to Appointment Menu...\n" << Color::RESET;
             break;
         default:
-            std::cout << "Invalid choice!\n";
+            std::cout << Color::BRIGHT_RED << "Invalid choice!\n" << Color::RESET;
+            pause();
         }
     } while (choice != 0);
 }
 
 void viewAllAppointments(std::vector<Appointment>& appointments, std::vector<Customer>& customers) {
     if (appointments.empty()) {
-        std::cout << "\nNo appointments found.\n";
+        std::cout << Color::BRIGHT_YELLOW << "\nNo appointments found.\n" << Color::RESET;
         return;
     }
 
@@ -833,7 +867,7 @@ void viewAllAppointments(std::vector<Appointment>& appointments, std::vector<Cus
     displayAppointmentHeader();
     int index = 1;
     for (auto* a : foundAppointments) {
-        std::cout << std::left << std::setw(5) << (std::to_string(index++) + ".");
+        std::cout << Color::BRIGHT_CYAN << std::left << std::setw(5) << (std::to_string(index++) + ".");
         displayAppointmentRow(*a);
     }
 
@@ -843,12 +877,12 @@ void viewAllAppointments(std::vector<Appointment>& appointments, std::vector<Cus
 void viewAppointmentsByDate(std::vector<Appointment>& appointments, std::vector<Customer>& customers) {
     std::string date;
     while (true) {
-        std::cout << "\nEnter Date to view (YYYY-MM-DD, or 0 to Return): ";
+        std::cout << Color::BRIGHT_YELLOW << "\nEnter Date to view (YYYY-MM-DD, or 0 to Return): " << Color::RESET;
         std::cin >> date;
         if (date == "0") return;
 
         if (!isValidDate(date)) {
-            std::cout << "ERROR: Invalid date format! Use YYYY-MM-DD.\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format! Use YYYY-MM-DD.\n" << Color::RESET;
         }
         else {
             break;
@@ -863,7 +897,7 @@ void viewAppointmentsByDate(std::vector<Appointment>& appointments, std::vector<
     }
 
     if (foundAppointments.empty()) {
-        std::cout << "No appointments found for date: " << date << "\n";
+        std::cout << Color::BRIGHT_YELLOW << "No appointments found for date: " << date << "\n" << Color::RESET;
         return;
     }
 
@@ -874,7 +908,7 @@ void viewAppointmentsByDate(std::vector<Appointment>& appointments, std::vector<
     displayAppointmentHeader();
     int index = 1;
     for (auto* a : foundAppointments) {
-        std::cout << std::left << std::setw(5) << (std::to_string(index++) + ".");
+        std::cout << Color::BRIGHT_CYAN << std::left << std::setw(5) << (std::to_string(index++) + ".");
         displayAppointmentRow(*a);
     }
 
@@ -883,7 +917,7 @@ void viewAppointmentsByDate(std::vector<Appointment>& appointments, std::vector<
 
 void viewTodaysAppointments(std::vector<Appointment>& appointments, std::vector<Customer>& customers) {
     std::string today = getTodayDate();
-    std::cout << "\n=== TODAY'S APPOINTMENTS (" << today << ") ===\n";
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "\n=== TODAY'S APPOINTMENTS (" << today << ") ===\n" << Color::RESET;
 
     std::vector<Appointment*> foundAppointments;
     for (auto& a : appointments) {
@@ -893,7 +927,7 @@ void viewTodaysAppointments(std::vector<Appointment>& appointments, std::vector<
     }
 
     if (foundAppointments.empty()) {
-        std::cout << "No appointments scheduled for today.\n";
+        std::cout << Color::BRIGHT_YELLOW << "No appointments scheduled for today.\n" << Color::RESET;
         return;
     }
 
@@ -904,7 +938,7 @@ void viewTodaysAppointments(std::vector<Appointment>& appointments, std::vector<
     displayAppointmentHeader();
     int index = 1;
     for (auto* a : foundAppointments) {
-        std::cout << std::left << std::setw(5) << (std::to_string(index++) + ".");
+        std::cout << Color::BRIGHT_CYAN << std::left << std::setw(5) << (std::to_string(index++) + ".");
         displayAppointmentRow(*a);
     }
 
@@ -915,11 +949,11 @@ static void manageAppointmentFromList(std::vector<Appointment*>& foundAppointmen
     std::vector<Appointment>& allAppointments, std::vector<Customer>& customers) {
     if (foundAppointments.empty()) return;
 
-    std::cout << "\nDo you want to manage an appointment from this list?\n";
-    std::cout << "1. Reschedule an appointment\n";
-    std::cout << "2. Cancel an appointment\n";
-    std::cout << "0. Return to menu\n";
-    std::cout << "Choice: ";
+    std::cout << Color::BRIGHT_YELLOW << "\nDo you want to manage an appointment from this list?\n" << Color::RESET;
+    std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Reschedule an appointment\n";
+    std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Cancel an appointment\n";
+    std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Return to menu\n";
+    std::cout << Color::BRIGHT_YELLOW << "Choice: " << Color::RESET;
 
     int choice;
     if (!(std::cin >> choice)) {
@@ -932,13 +966,13 @@ static void manageAppointmentFromList(std::vector<Appointment*>& foundAppointmen
 
     if (choice == 1 || choice == 2) {
         int appointmentIndex;
-        std::cout << "Enter the number (#) of the appointment to "
+        std::cout << Color::BRIGHT_YELLOW << "Enter the number (#) of the appointment to "
             << (choice == 1 ? "reschedule" : "cancel")
-            << " (1-" << foundAppointments.size() << "): ";
+            << " (1-" << foundAppointments.size() << "): " << Color::RESET;
 
         if (!(std::cin >> appointmentIndex) || appointmentIndex < 1 ||
             appointmentIndex > static_cast<int>(foundAppointments.size())) {
-            std::cout << "Invalid selection!\n";
+            std::cout << Color::BRIGHT_RED << "Invalid selection!\n" << Color::RESET;
             std::cin.clear();
             std::cin.ignore(1000, '\n');
             return;
@@ -955,28 +989,28 @@ static void manageAppointmentFromList(std::vector<Appointment*>& foundAppointmen
         }
     }
     else {
-        std::cout << "Invalid choice!\n";
+        std::cout << Color::BRIGHT_RED << "Invalid choice!\n" << Color::RESET;
     }
 }
 
 static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointment>& allAppointments) {
     if (!app || !app->isActive) {
-        std::cout << "This appointment is not active or does not exist.\n";
+        std::cout << Color::BRIGHT_RED << "This appointment is not active or does not exist.\n" << Color::RESET;
         return;
     }
 
     std::string newDate, newTime;
     std::string today = getTodayDate();
-    std::cout << "\nCurrent Schedule: " << app->date << " @ " << app->time << "\n";
+    std::cout << Color::BRIGHT_CYAN << "\nCurrent Schedule: " << Color::BRIGHT_WHITE << app->date << " @ " << app->time << "\n" << Color::RESET;
 
     while (true) {
-        std::cout << "Enter New Date (YYYY-MM-DD, Today or Future): ";
+        std::cout << Color::BRIGHT_YELLOW << "Enter New Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
         std::cin >> newDate;
         if (!isValidDate(newDate)) {
-            std::cout << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n" << Color::RESET;
         }
         else if (newDate < today) {
-            std::cout << "ERROR: Rescheduled date cannot be in the past! Current date is: " << today << "\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Rescheduled date cannot be in the past! Current date is: " << today << "\n" << Color::RESET;
         }
         else {
             break;
@@ -984,10 +1018,10 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
     }
 
     while (true) {
-        std::cout << "Enter New Time (HH:MM in 24-hr format): ";
+        std::cout << Color::BRIGHT_YELLOW << "Enter New Time (HH:MM in 24-hr format): " << Color::RESET;
         std::cin >> newTime;
         if (!isValidTime(newTime)) {
-            std::cout << "ERROR: Invalid time format! Use HH:MM (00:00 to 23:59).\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Invalid time format! Use HH:MM (00:00 to 23:59).\n" << Color::RESET;
         }
         else {
             break;
@@ -996,7 +1030,7 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
 
     for (const auto& a : allAppointments) {
         if (&a != app && a.isActive && a.date == newDate && a.time == newTime) {
-            std::cout << "ERROR: Destination slot is already occupied!\n";
+            std::cout << Color::BRIGHT_RED << "ERROR: Destination slot is already occupied!\n" << Color::RESET;
             return;
         }
     }
@@ -1005,21 +1039,21 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
     std::string oldTime = app->time;
     app->date = newDate;
     app->time = newTime;
-    std::cout << "Appointment " << app->appointmentId
+    std::cout << Color::BRIGHT_CYAN << "Appointment " << app->appointmentId
         << " rescheduled from " << oldDate << " @ " << oldTime
-        << " to " << newDate << " @ " << newTime << " successfully!\n";
+        << " to " << newDate << " @ " << newTime << " successfully!\n" << Color::RESET;
 
     saveAppointmentsToFile(allAppointments);
 }
 
 static void cancelSpecificAppointment(Appointment* app, std::vector<Customer>& customers) {
     if (!app) {
-        std::cout << "Appointment not found.\n";
+        std::cout << Color::BRIGHT_RED << "Appointment not found.\n" << Color::RESET;
         return;
     }
 
     if (!app->isActive) {
-        std::cout << "This appointment is already inactive.\n";
+        std::cout << Color::BRIGHT_YELLOW << "This appointment is already inactive.\n" << Color::RESET;
         return;
     }
 
@@ -1027,11 +1061,11 @@ static void cancelSpecificAppointment(Appointment* app, std::vector<Customer>& c
         for (auto& c : customers) {
             for (auto& v : c.vehicles) {
                 if (v.licensePlate == app->licensePlate) {
-                    v.laborCost -= app->totalFee;
+                    v.partsCost -= app->totalFee;
                     v.currentServiceCost -= app->totalFee;
-                    if (v.laborCost < 0.0) v.laborCost = 0.0;
+                    if (v.partsCost < 0.0) v.partsCost = 0.0;
                     if (v.currentServiceCost < 0.0) v.currentServiceCost = 0.0;
-                    v.lastServiceDescription.clear(); // belonged solely to this (now cancelled) appointment
+                    v.lastServiceDescription.clear();
                     break;
                 }
             }
@@ -1040,29 +1074,59 @@ static void cancelSpecificAppointment(Appointment* app, std::vector<Customer>& c
     }
 
     app->isActive = false;
-    std::cout << "Appointment " << app->appointmentId << " successfully set to inactive.\n";
+    std::cout << Color::BRIGHT_CYAN << "Appointment " << app->appointmentId << " successfully set to inactive.\n" << Color::RESET;
 }
 
 void searchAppointment(const std::vector<Appointment>& appointments) {
     std::string query;
-    std::cout << "\nEnter Booking ID or Customer Phone Number (or 0 to Return to Main Menu): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Booking ID, Customer Phone Number, or License Plate (or 0 to Return to Main Menu): " << Color::RESET;
     std::cin >> query;
     if (query == "0") return;
 
     query = toUpper(query);
 
-    bool found = false;
+    std::vector<const Appointment*> matches;
     for (const auto& a : appointments) {
-        if (a.appointmentId == query || a.customerId == query) {
-            generateBookingSlip(a);
-            found = true;
+        if (toUpper(a.appointmentId) == query || toUpper(a.customerId) == query || toUpper(a.licensePlate) == query) {
+            matches.push_back(&a);
         }
     }
-    if (!found) std::cout << "No matching appointments found.\n";
+
+    if (matches.empty()) {
+        std::cout << Color::BRIGHT_YELLOW << "No matching appointments found.\n" << Color::RESET;
+        return;
+    }
+
+    if (matches.size() == 1) {
+        generateBookingSlip(*matches[0]);
+        return;
+    }
+
+    std::cout << Color::BRIGHT_CYAN << "\nFound " << matches.size() << " matching appointment(s):\n" << Color::RESET;
+    displayAppointmentHeader();
+    for (size_t i = 0; i < matches.size(); ++i) {
+        std::cout << Color::BRIGHT_CYAN << std::left << std::setw(5) << (std::to_string(i + 1) + ".");
+        displayAppointmentRow(*matches[i]);
+    }
+
+    int sel = -1;
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter the number (#) to view full details (0 to Return): " << Color::RESET;
+    if (!(std::cin >> sel)) {
+        std::cin.clear();
+        std::cin.ignore(1000, '\n');
+        return;
+    }
+    if (sel == 0) return;
+    if (sel < 1 || sel > static_cast<int>(matches.size())) {
+        std::cout << Color::BRIGHT_RED << "Invalid selection.\n" << Color::RESET;
+        return;
+    }
+
+    generateBookingSlip(*matches[sel - 1]);
 }
 
 void rescheduleAppointment(std::vector<Appointment>& appointments) {
-    std::cout << "\n--- Active Appointments ---\n";
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "\n--- Active Appointments ---\n" << Color::RESET;
 
     std::vector<Appointment*> activeApps;
     for (auto& a : appointments) {
@@ -1072,7 +1136,7 @@ void rescheduleAppointment(std::vector<Appointment>& appointments) {
     }
 
     if (activeApps.empty()) {
-        std::cout << "No active appointments found.\n";
+        std::cout << Color::BRIGHT_YELLOW << "No active appointments found.\n" << Color::RESET;
         return;
     }
 
@@ -1083,12 +1147,12 @@ void rescheduleAppointment(std::vector<Appointment>& appointments) {
     displayAppointmentHeader();
     int index = 1;
     for (const auto* a : activeApps) {
-        std::cout << std::left << std::setw(5) << (std::to_string(index++) + ".");
+        std::cout << Color::BRIGHT_CYAN << std::left << std::setw(5) << (std::to_string(index++) + ".");
         displayAppointmentRow(*a);
     }
 
     std::string appId;
-    std::cout << "\nEnter Appointment ID to reschedule (or 0 to Return to Main Menu): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Appointment ID to reschedule (or 0 to Return to Main Menu): " << Color::RESET;
     std::cin >> appId;
     if (appId == "0") return;
 
@@ -1100,11 +1164,11 @@ void rescheduleAppointment(std::vector<Appointment>& appointments) {
             return;
         }
     }
-    std::cout << "Active appointment ID not found.\n";
+    std::cout << Color::BRIGHT_RED << "Active appointment ID not found.\n" << Color::RESET;
 }
 
 void cancelAppointment(std::vector<Appointment>& appointments, std::vector<Customer>& customers) {
-    std::cout << "\n--- Active Appointments ---\n";
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "\n--- Active Appointments ---\n" << Color::RESET;
 
     std::vector<Appointment*> activeApps;
     for (auto& a : appointments) {
@@ -1114,7 +1178,7 @@ void cancelAppointment(std::vector<Appointment>& appointments, std::vector<Custo
     }
 
     if (activeApps.empty()) {
-        std::cout << "No active appointments found.\n";
+        std::cout << Color::BRIGHT_YELLOW << "No active appointments found.\n" << Color::RESET;
         return;
     }
 
@@ -1125,12 +1189,12 @@ void cancelAppointment(std::vector<Appointment>& appointments, std::vector<Custo
     displayAppointmentHeader();
     int index = 1;
     for (const auto* a : activeApps) {
-        std::cout << std::left << std::setw(5) << (std::to_string(index++) + ".");
+        std::cout << Color::BRIGHT_CYAN << std::left << std::setw(5) << (std::to_string(index++) + ".");
         displayAppointmentRow(*a);
     }
 
     std::string appId;
-    std::cout << "\nEnter Appointment ID to cancel (or 0 to Return to Main Menu): ";
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Appointment ID to cancel (or 0 to Return to Main Menu): " << Color::RESET;
     std::cin >> appId;
     if (appId == "0") return;
 
@@ -1143,5 +1207,5 @@ void cancelAppointment(std::vector<Appointment>& appointments, std::vector<Custo
             return;
         }
     }
-    std::cout << "Appointment ID not found.\n";
+    std::cout << Color::BRIGHT_RED << "Appointment ID not found.\n" << Color::RESET;
 }

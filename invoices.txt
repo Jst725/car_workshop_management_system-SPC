@@ -1,0 +1,17 @@
+INV|B001|01123456789|BJE427|2026-08-29|510|100|30.5|34.77|614.27|0|Unpaid
+ITEM|(2)  Engine Problems -> Engine Cannot Start|Service|1|510|510
+ITEM|Labor Charge|Labor|1|100|100
+INV|B002|01123456789|HAH339|2026-08-29|501|100.99|30.0995|34.3134|606.204|1|Card
+ITEM|Engine Cannot Start|Service|1|0|0
+ITEM|Brake Pedal Soft / Spongy|Service|1|0|0
+ITEM|Basic Engine Oil & Filter Change|Service|1|130|130
+ITEM|Brake System Service & Flush|Service|1|140|140
+ITEM|tayar|Part|3|77|231
+ITEM|Labor Charge|Labor|1|100.99|100.99
+INV|B003|01123456789|HAH339|2026-08-29|624|100|72.4|39.096|690.696|1|Cash
+ITEM|Brake Pedal Soft / Spongy|Service|1|0|0
+ITEM|Tyre Pressure Warning|Service|1|0|0
+ITEM|Transmission & Gearbox Fluid Service|Service|1|220|220
+ITEM|Brake System Service & Flush|Service|1|140|140
+ITEM|tayar|Part|3|88|264
+ITEM|Labor Charge|Labor|1|100|100

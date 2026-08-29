@@ -259,7 +259,7 @@ void monthlyReport(const std::vector<Invoice>& invoices) {
     std::cout << Color::CYAN << "\n========================================\n" << Color::RESET
         << Color::BRIGHT_YELLOW << Color::BOLD << "          MONTHLY SALES REPORT          \n" << Color::RESET
         << Color::CYAN << "========================================\n" << Color::RESET
-        << Color::BRIGHT_CYAN << "Month/Year         : " << Color::BRIGHT_WHITE << std::setw(2) << std::setfill('0') << month << "/" << year << std::setfill(' ') << "\n\n"
+        << Color::BRIGHT_CYAN << "Month/Year         : " << Color::BRIGHT_WHITE << std::setw(2) << std::setfill('0') << month << std::setfill(' ') << "/" << year << "\n\n"
         << Color::BRIGHT_CYAN << "Total Bills        : " << Color::BRIGHT_WHITE << totalBills << "\n"
         << Color::BRIGHT_CYAN << "Total Sales        : RM" << Color::BRIGHT_WHITE << std::fixed << std::setprecision(2) << totalSales << "\n"
         << Color::BRIGHT_CYAN << "Payment Received   : RM" << Color::BRIGHT_WHITE << paymentReceived << "\n"

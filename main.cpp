@@ -91,7 +91,7 @@ int main() {
 
         switch (choice) {
         case 1:
-            customerMenu(customers);
+            customerMenu(customers, invoices);
             break;
         case 2:
             appointmentMenu(appointments, customers);

@@ -15,3 +15,6 @@ ITEM|Transmission & Gearbox Fluid Service|Service|1|220|220
 ITEM|Brake System Service & Flush|Service|1|140|140
 ITEM|tayar|Part|3|88|264
 ITEM|Labor Charge|Labor|1|100|100
+INV|B004|01123456789|HAH339|2026-08-29|650|100|75|40.5|715.5|0|Unpaid
+ITEM|Major Service & Timing Belt Package|Service|1|650|650
+ITEM|Labor Charge|Labor|1|100|100

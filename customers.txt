@@ -1,2 +1,4 @@
 01123456789|ming|Gold|3573.25
 1234567890|ming|Regular|148.4
+01234567890|hihihi|Silver|0
+0123456789|ming|Regular|0

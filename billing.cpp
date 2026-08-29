@@ -146,6 +146,247 @@ static void printInvoiceDetails(const Invoice& inv, const std::string& customerN
     std::cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
 }
 
+// Display strictly unpaid invoices, with an option to select and view detailed invoice slip
+void displayInvoices(const std::vector<Invoice>& invoices, const std::vector<Customer>& customers) {
+    std::vector<const Invoice*> unpaidInvoices;
+    for (const auto& inv : invoices) {
+        if (!inv.isPaid) {
+            unpaidInvoices.push_back(&inv);
+        }
+    }
+
+    if (unpaidInvoices.empty()) {
+        std::cout << Color::BRIGHT_YELLOW << "\nNo unpaid bill records found in storage.\n" << Color::RESET;
+        return;
+    }
+
+    std::cout << Color::CYAN << "\n------------------------------------------------------------------------------------------------------------------\n" << Color::RESET;
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << std::left << std::setw(6) << "No."
+        << std::setw(10) << "Bill ID"
+        << std::setw(15) << "Phone Number"
+        << std::setw(12) << "Plate"
+        << std::setw(12) << "Subtotal"
+        << std::setw(12) << "Discount"
+        << std::setw(12) << "Tax(6%)"
+        << std::setw(12) << "Total(RM)"
+        << std::setw(12) << "Method"
+        << "Status\n" << Color::RESET;
+    std::cout << Color::CYAN << "------------------------------------------------------------------------------------------------------------------\n" << Color::RESET;
+
+    for (size_t i = 0; i < unpaidInvoices.size(); ++i) {
+        const auto& inv = *unpaidInvoices[i];
+        double sub = inv.partsCost + inv.laborCost;
+        std::cout << Color::BRIGHT_WHITE << std::left << std::setw(6) << (i + 1)
+            << std::setw(10) << inv.invoiceId
+            << std::setw(15) << inv.customerId
+            << std::setw(12) << inv.licensePlate
+            << std::setw(12) << std::fixed << std::setprecision(2) << sub
+            << std::setw(12) << inv.discountAmount
+            << std::setw(12) << inv.taxAmount
+            << std::setw(12) << inv.totalAmount
+            << std::setw(12) << inv.paymentType
+            << (Color::BRIGHT_RED + "Unpaid" + Color::RESET) << "\n";
+    }
+    std::cout << Color::CYAN << "------------------------------------------------------------------------------------------------------------------\n" << Color::RESET;
+
+    std::cout << Color::BRIGHT_YELLOW << "\nWould you like to view invoice details (slip)? (Y/N): " << Color::RESET;
+    char viewChoice;
+    std::cin >> viewChoice;
+    if (std::toupper(viewChoice) == 'Y') {
+        int idx;
+        std::cout << Color::BRIGHT_YELLOW << "Enter Index No. (1-" << unpaidInvoices.size() << "): " << Color::RESET;
+        if (std::cin >> idx && idx >= 1 && idx <= static_cast<int>(unpaidInvoices.size())) {
+            const Invoice* selected = unpaidInvoices[idx - 1];
+            std::string custName = "Unknown";
+            auto cIt = std::find_if(customers.begin(), customers.end(), [&](const Customer& c) {
+                return c.phone == selected->customerId;
+                });
+            if (cIt != customers.end()) custName = cIt->name;
+            printInvoiceDetails(*selected, custName);
+        }
+        else {
+            std::cout << Color::BRIGHT_RED << "Invalid index selection.\n" << Color::RESET;
+            clearCinError();
+        }
+    }
+}
+
+// Function to search BOTH PAID & UNPAID invoices by Phone Number, blocking edits on paid ones
+void searchInvoiceByPhone(std::vector<Invoice>& invoices, std::vector<Customer>& customers) {
+    std::string phoneInput;
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Customer Phone Number to search: " << Color::RESET;
+    std::cin >> phoneInput;
+
+    std::string searchKey = toUpper(phoneInput);
+    std::vector<Invoice*> allMatches;
+
+    for (auto& inv : invoices) {
+        if (toUpper(inv.customerId) == searchKey) {
+            allMatches.push_back(&inv);
+        }
+    }
+
+    std::cout << Color::CYAN << "\n========================================================================================\n" << Color::RESET;
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "                      INVOICE SEARCH RESULTS (Phone: " << phoneInput << ")                      \n" << Color::RESET;
+    std::cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
+
+    if (allMatches.empty()) {
+        std::cout << Color::BRIGHT_RED << "No invoices found for Customer Phone Number: [" << phoneInput << "]\n" << Color::RESET;
+        std::cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
+        return;
+    }
+
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << std::left << std::setw(6) << "No."
+        << std::setw(12) << "Bill ID"
+        << std::setw(15) << "Phone Number"
+        << std::setw(14) << "Plate"
+        << std::setw(14) << "Date"
+        << std::setw(15) << "Total (RM)"
+        << std::setw(12) << "Method"
+        << "Status\n" << Color::RESET;
+    std::cout << Color::CYAN << "----------------------------------------------------------------------------------------\n" << Color::RESET;
+
+    for (size_t i = 0; i < allMatches.size(); ++i) {
+        const auto& inv = *allMatches[i];
+        std::cout << Color::BRIGHT_WHITE << std::left << std::setw(6) << (i + 1)
+            << std::setw(12) << inv.invoiceId
+            << std::setw(15) << inv.customerId
+            << std::setw(14) << inv.licensePlate
+            << std::setw(14) << inv.date
+            << std::setw(15) << std::fixed << std::setprecision(2) << inv.totalAmount
+            << std::setw(12) << inv.paymentType
+            << (inv.isPaid ? (Color::BRIGHT_CYAN + "PAID" + Color::RESET) : (Color::BRIGHT_RED + "UNPAID" + Color::RESET)) << "\n";
+    }
+    std::cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
+
+    std::cout << Color::BRIGHT_CYAN << "\nActions:\n";
+    std::cout << "1. View Invoice Details (Slip)\n";
+    std::cout << "2. Edit Invoice\n";
+    std::cout << "0. Return\n";
+    std::cout << Color::BRIGHT_YELLOW << "Choose action: " << Color::RESET;
+
+    int actChoice;
+    if (!(std::cin >> actChoice) || actChoice == 0) {
+        if (actChoice != 0) clearCinError();
+        return;
+    }
+
+    if (actChoice == 1 || actChoice == 2) {
+        int idx;
+        std::cout << Color::BRIGHT_YELLOW << "Select Invoice No. (1-" << allMatches.size() << "): " << Color::RESET;
+        if (std::cin >> idx && idx >= 1 && idx <= static_cast<int>(allMatches.size())) {
+            Invoice* target = allMatches[idx - 1];
+            if (actChoice == 1) {
+                std::string custName = "Unknown";
+                auto cIt = std::find_if(customers.begin(), customers.end(), [&](const Customer& c) {
+                    return c.phone == target->customerId;
+                    });
+                if (cIt != customers.end()) custName = cIt->name;
+                printInvoiceDetails(*target, custName);
+            }
+            else {
+                // Check if invoice is paid before allowing edit
+                if (target->isPaid) {
+                    std::cout << Color::BRIGHT_RED << "\nERROR: Invoice [" << target->invoiceId << "] is already PAID and CANNOT be edited!\n" << Color::RESET;
+                    return;
+                }
+
+                // Perform Edit on the selected UNPAID invoice directly
+                std::cout << Color::CYAN << "\n--- EDIT UNPAID INVOICE [" << target->invoiceId << "] ---\n" << Color::RESET;
+                std::cout << Color::BRIGHT_CYAN << "1. Update Bill Date\n";
+                std::cout << "2. Apply / Change Discount Rate\n";
+                std::cout << "3. Delete Bill\n";
+                std::cout << Color::BRIGHT_RED << "0. Cancel\n" << Color::RESET;
+                std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
+                int uc;
+                if (!(std::cin >> uc) || uc == 0) { clearCinError(); return; }
+
+                if (uc == 1) {
+                    std::cout << Color::BRIGHT_YELLOW << "Enter new date (YYYY-MM-DD): " << Color::RESET;
+                    std::cin >> target->date;
+                    saveInvoicesToFile(invoices);
+                    std::cout << Color::BRIGHT_CYAN << "Bill date updated and saved successfully.\n" << Color::RESET;
+                }
+                else if (uc == 2) {
+                    std::cout << Color::BRIGHT_YELLOW << "\nChoose Discount Option:\n" << Color::RESET;
+                    std::cout << Color::BRIGHT_CYAN << "1. Apply Tier-Based Discount (Auto via Customer Membership)\n";
+                    std::cout << "2. Apply Custom Percentage Discount\n";
+                    std::cout << "3. Apply Custom Fixed Amount Discount (RM)\n";
+                    std::cout << Color::BRIGHT_RED << "0. Cancel\n" << Color::RESET;
+                    std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
+
+                    int dChoice;
+                    if (!(std::cin >> dChoice) || dChoice == 0) { clearCinError(); return; }
+
+                    double sub = target->partsCost + target->laborCost;
+                    double discAmount = 0.0;
+                    double discPercentageShown = 0.0;
+
+                    if (dChoice == 1) {
+                        double discRate = 0.0;
+                        auto custIt = std::find_if(customers.begin(), customers.end(), [&](const Customer& c) {
+                            return c.phone == target->customerId;
+                            });
+                        if (custIt != customers.end()) {
+                            discRate = getTierDiscountRate(custIt->membershipTier);
+                        }
+                        discAmount = sub * discRate;
+                        discPercentageShown = discRate * 100.0;
+                    }
+                    else if (dChoice == 2) {
+                        double pct = 0.0;
+                        std::cout << Color::BRIGHT_YELLOW << "Enter discount percentage (e.g., 15 for 15%): " << Color::RESET;
+                        std::cin >> pct;
+                        if (pct < 0 || pct > 100) {
+                            std::cout << Color::BRIGHT_RED << "Invalid percentage range!\n" << Color::RESET;
+                            return;
+                        }
+                        discAmount = sub * (pct / 100.0);
+                        discPercentageShown = pct;
+                    }
+                    else if (dChoice == 3) {
+                        std::cout << Color::BRIGHT_YELLOW << "Enter fixed discount amount (RM): " << Color::RESET;
+                        std::cin >> discAmount;
+                        if (discAmount < 0) discAmount = 0;
+                        if (discAmount > sub) discAmount = sub;
+                        discPercentageShown = (sub > 0) ? (discAmount / sub) * 100.0 : 0.0;
+                    }
+
+                    target->discountAmount = discAmount;
+                    target->taxAmount = (sub - target->discountAmount) * 0.06;
+                    target->totalAmount = (sub - target->discountAmount) + target->taxAmount;
+
+                    saveInvoicesToFile(invoices);
+
+                    std::cout << std::fixed << std::setprecision(2);
+                    std::cout << Color::BRIGHT_CYAN << "Discount applied (" << discPercentageShown << "% equivalent / RM" << target->discountAmount << " off).\n";
+                    std::cout << "New Total (incl. 6% Tax): RM" << target->totalAmount << "\n";
+                    std::cout << "Changes stored to file successfully.\n" << Color::RESET;
+                }
+                else if (uc == 3) {
+                    std::cout << Color::BRIGHT_YELLOW << "Confirm Delete? (Y/N): " << Color::RESET;
+                    char confirm;
+                    std::cin >> confirm;
+                    if (std::toupper(confirm) == 'Y') {
+                        auto eraseIt = std::find_if(invoices.begin(), invoices.end(), [&](const Invoice& inv) {
+                            return inv.invoiceId == target->invoiceId;
+                            });
+                        if (eraseIt != invoices.end()) {
+                            invoices.erase(eraseIt);
+                        }
+                        saveInvoicesToFile(invoices);
+                        std::cout << Color::BRIGHT_CYAN << "Bill deleted and changes stored to file successfully.\n" << Color::RESET;
+                    }
+                }
+            }
+        }
+        else {
+            std::cout << Color::BRIGHT_RED << "Invalid selection!\n" << Color::RESET;
+            clearCinError();
+        }
+    }
+}
+
 void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customers, std::vector<Appointment>& appointments) {
     int choice = -1;
     do {
@@ -154,9 +395,11 @@ void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customer
         std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "        BILL & PAYMENT MANAGEMENT        \n" << Color::RESET;
         std::cout << Color::CYAN << "========================================\n" << Color::RESET;
         std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Generate Invoice\n";
-        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Edit Invoice (Apply/Change Discount)\n";
-        std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Process Payment (Print Receipt)\n";
-        std::cout << Color::BRIGHT_CYAN << "4. " << Color::BRIGHT_WHITE << "Payment History\n";
+        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "View Unpaid Invoices\n";
+        std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Search Invoice (by Phone Number)\n";
+        std::cout << Color::BRIGHT_CYAN << "4. " << Color::BRIGHT_WHITE << "Edit Invoice (Unpaid Only)\n";
+        std::cout << Color::BRIGHT_CYAN << "5. " << Color::BRIGHT_WHITE << "Process Payment (Print Receipt)\n";
+        std::cout << Color::BRIGHT_CYAN << "6. " << Color::BRIGHT_WHITE << "Payment History\n";
         std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Back to Main Menu\n";
         std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
         std::cout << Color::BRIGHT_YELLOW << "Enter your choice: " << Color::RESET;
@@ -176,15 +419,25 @@ void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customer
             break;
         case 2:
             clearScreen();
-            editInvoice(invoices, customers);
+            displayInvoices(invoices, customers);
             pauseSystem();
             break;
         case 3:
             clearScreen();
-            processPayment(invoices, customers, appointments);
+            searchInvoiceByPhone(invoices, customers);
             pauseSystem();
             break;
         case 4:
+            clearScreen();
+            editInvoice(invoices, customers);
+            pauseSystem();
+            break;
+        case 5:
+            clearScreen();
+            processPayment(invoices, customers, appointments);
+            pauseSystem();
+            break;
+        case 6:
             clearScreen();
             paymentHistory(customers, invoices);
             break;
@@ -192,7 +445,7 @@ void billingMenu(std::vector<Invoice>& invoices, std::vector<Customer>& customer
             std::cout << Color::BRIGHT_CYAN << "Returning to Main Menu...\n" << Color::RESET;
             break;
         default:
-            std::cout << Color::BRIGHT_RED << "Invalid choice! Please select an option between 0 and 4.\n" << Color::RESET;
+            std::cout << Color::BRIGHT_RED << "Invalid choice! Please select an option between 0 and 6.\n" << Color::RESET;
             pauseSystem();
         }
     } while (choice != 0);
@@ -305,7 +558,7 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
             inv.items.push_back(item);
         }
     }
-    // 2. Parse appointment string format: extracts services and cleans price brackets
+    // 2. Parse appointment string format
     else {
         std::string rawDesc = !targetVehicle->lastPartsUsed.empty() ? targetVehicle->lastPartsUsed :
             (!targetVehicle->lastServiceDescription.empty() ? targetVehicle->lastServiceDescription : "");
@@ -396,152 +649,136 @@ void generateInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& cust
     printInvoiceDetails(inv, targetCustomer.name);
 }
 
+// Function strictly edits UNPAID invoices only
 void editInvoice(std::vector<Invoice>& invoices, std::vector<Customer>& customers) {
-    std::string bId;
-    std::cout << Color::BRIGHT_YELLOW << "\nEnter Bill ID to edit: " << Color::RESET;
-    std::cin >> bId;
-    std::string upId = toUpper(bId);
+    std::string phoneInput;
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Customer Phone Number to edit bill: " << Color::RESET;
+    std::cin >> phoneInput;
 
-    auto it = std::find_if(invoices.begin(), invoices.end(), [&](const Invoice& inv) {
-        return toUpper(inv.invoiceId) == upId;
-        });
+    std::string key = toUpper(phoneInput);
+    std::vector<Invoice*> unpaidCustomerInvoices;
 
-    if (it == invoices.end()) {
-        std::cout << Color::BRIGHT_RED << "Bill not found.\n" << Color::RESET;
+    for (auto& inv : invoices) {
+        if (!inv.isPaid && toUpper(inv.customerId) == key) {
+            unpaidCustomerInvoices.push_back(&inv);
+        }
+    }
+
+    if (unpaidCustomerInvoices.empty()) {
+        std::cout << Color::BRIGHT_RED << "No unpaid bills found for customer phone: [" << phoneInput << "]. Paid invoices cannot be edited.\n" << Color::RESET;
         return;
     }
 
-    Invoice& target = *it;
+    std::cout << Color::CYAN << "\n========================================\n" << Color::RESET;
+    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "        SELECT UNPAID BILL TO EDIT      \n" << Color::RESET;
+    std::cout << Color::CYAN << "========================================\n" << Color::RESET;
+    for (size_t i = 0; i < unpaidCustomerInvoices.size(); ++i) {
+        std::cout << Color::BRIGHT_CYAN << (i + 1) << ". " << Color::BRIGHT_WHITE << unpaidCustomerInvoices[i]->invoiceId
+            << " | Plate: " << unpaidCustomerInvoices[i]->licensePlate
+            << " | Total: RM" << std::fixed << std::setprecision(2) << unpaidCustomerInvoices[i]->totalAmount
+            << " | Status: " << Color::BRIGHT_RED << "Unpaid\n" << Color::RESET;
+    }
 
-    if (!target.isPaid) {
-        std::cout << Color::BRIGHT_CYAN << "\n1. " << Color::BRIGHT_WHITE << "Update Bill Date\n";
-        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Apply / Change Discount Rate\n";
-        std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Delete Bill\n";
-        std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Back\n";
+    int invSelect;
+    std::cout << Color::BRIGHT_YELLOW << "Select bill index: " << Color::RESET;
+    if (!(std::cin >> invSelect) || invSelect < 1 || invSelect > static_cast<int>(unpaidCustomerInvoices.size())) {
+        std::cout << Color::BRIGHT_RED << "Invalid selection!\n" << Color::RESET;
+        clearCinError();
+        return;
+    }
+
+    Invoice& target = *unpaidCustomerInvoices[invSelect - 1];
+
+    std::cout << Color::BRIGHT_CYAN << "\n1. " << Color::BRIGHT_WHITE << "Update Bill Date\n";
+    std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Apply / Change Discount Rate\n";
+    std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Delete Bill\n";
+    std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Back\n";
+    std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
+    int uc;
+    if (!(std::cin >> uc) || uc == 0) { clearCinError(); return; }
+
+    if (uc == 1) {
+        std::cout << Color::BRIGHT_YELLOW << "Enter new date (YYYY-MM-DD): " << Color::RESET;
+        std::cin >> target.date;
+        saveInvoicesToFile(invoices);
+        std::cout << Color::BRIGHT_CYAN << "Bill date updated and saved successfully.\n" << Color::RESET;
+    }
+    else if (uc == 2) {
+        std::cout << Color::BRIGHT_YELLOW << "\nChoose Discount Option:\n" << Color::RESET;
+        std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Apply Tier-Based Discount (Auto via Customer Membership)\n";
+        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Apply Custom Percentage Discount\n";
+        std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Apply Custom Fixed Amount Discount (RM)\n";
+        std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Cancel\n";
         std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
-        int uc;
-        if (!(std::cin >> uc)) { std::cout << Color::BRIGHT_RED << "Invalid input!\n" << Color::RESET; clearCinError(); return; }
 
-        if (uc == 1) {
-            std::cout << Color::BRIGHT_YELLOW << "Enter new date (YYYY-MM-DD): " << Color::RESET;
-            std::cin >> target.date;
-            saveInvoicesToFile(invoices);
-            std::cout << Color::BRIGHT_CYAN << "Bill date updated and saved successfully.\n" << Color::RESET;
+        int dChoice;
+        if (!(std::cin >> dChoice)) { std::cout << Color::BRIGHT_RED << "Invalid input!\n" << Color::RESET; clearCinError(); return; }
+
+        double sub = target.partsCost + target.laborCost;
+        double discAmount = 0.0;
+        double discPercentageShown = 0.0;
+
+        if (dChoice == 1) {
+            double discRate = 0.0;
+            auto custIt = std::find_if(customers.begin(), customers.end(), [&](const Customer& c) {
+                return c.phone == target.customerId;
+                });
+            if (custIt != customers.end()) {
+                discRate = getTierDiscountRate(custIt->membershipTier);
+            }
+            discAmount = sub * discRate;
+            discPercentageShown = discRate * 100.0;
         }
-        else if (uc == 2) {
-            std::cout << Color::BRIGHT_YELLOW << "\nChoose Discount Option:\n" << Color::RESET;
-            std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Apply Tier-Based Discount (Auto via Customer Membership)\n";
-            std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Apply Custom Percentage Discount\n";
-            std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Apply Custom Fixed Amount Discount (RM)\n";
-            std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Cancel\n";
-            std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
-
-            int dChoice;
-            if (!(std::cin >> dChoice)) { std::cout << Color::BRIGHT_RED << "Invalid input!\n" << Color::RESET; clearCinError(); return; }
-
-            double sub = target.partsCost + target.laborCost;
-            double discAmount = 0.0;
-            double discPercentageShown = 0.0;
-
-            if (dChoice == 1) {
-                double discRate = 0.0;
-                auto custIt = std::find_if(customers.begin(), customers.end(), [&](const Customer& c) {
-                    return c.phone == target.customerId;
-                    });
-                if (custIt != customers.end()) {
-                    discRate = getTierDiscountRate(custIt->membershipTier);
-                }
-                discAmount = sub * discRate;
-                discPercentageShown = discRate * 100.0;
-            }
-            else if (dChoice == 2) {
-                double pct = 0.0;
-                std::cout << Color::BRIGHT_YELLOW << "Enter discount percentage (e.g., 15 for 15%): " << Color::RESET;
-                std::cin >> pct;
-                if (pct < 0 || pct > 100) {
-                    std::cout << Color::BRIGHT_RED << "Invalid percentage range!\n" << Color::RESET;
-                    return;
-                }
-                discAmount = sub * (pct / 100.0);
-                discPercentageShown = pct;
-            }
-            else if (dChoice == 3) {
-                std::cout << Color::BRIGHT_YELLOW << "Enter fixed discount amount (RM): " << Color::RESET;
-                std::cin >> discAmount;
-                if (discAmount < 0) discAmount = 0;
-                if (discAmount > sub) discAmount = sub;
-                discPercentageShown = (sub > 0) ? (discAmount / sub) * 100.0 : 0.0;
-            }
-            else {
-                std::cout << Color::BRIGHT_YELLOW << "Discount modification cancelled.\n" << Color::RESET;
+        else if (dChoice == 2) {
+            double pct = 0.0;
+            std::cout << Color::BRIGHT_YELLOW << "Enter discount percentage (e.g., 15 for 15%): " << Color::RESET;
+            std::cin >> pct;
+            if (pct < 0 || pct > 100) {
+                std::cout << Color::BRIGHT_RED << "Invalid percentage range!\n" << Color::RESET;
                 return;
             }
-
-            target.discountAmount = discAmount;
-            target.taxAmount = (sub - target.discountAmount) * 0.06;
-            target.totalAmount = (sub - target.discountAmount) + target.taxAmount;
-
-            saveInvoicesToFile(invoices);
-
-            std::cout << std::fixed << std::setprecision(2);
-            std::cout << Color::BRIGHT_CYAN << "Discount applied (" << discPercentageShown << "% equivalent / RM" << target.discountAmount << " off).\n";
-            std::cout << "New Total (incl. 6% Tax): RM" << target.totalAmount << "\n";
-            std::cout << "Changes stored to file successfully.\n" << Color::RESET;
+            discAmount = sub * (pct / 100.0);
+            discPercentageShown = pct;
         }
-        else if (uc == 3) {
-            std::cout << Color::BRIGHT_YELLOW << "Confirm Delete? (Y/N): " << Color::RESET;
-            char confirm;
-            std::cin >> confirm;
-            if (std::toupper(confirm) == 'Y') {
-                invoices.erase(it);
-                saveInvoicesToFile(invoices);
-                std::cout << Color::BRIGHT_CYAN << "Bill deleted and changes stored to file successfully.\n" << Color::RESET;
-            }
-            else {
-                std::cout << Color::BRIGHT_YELLOW << "Delete cancelled.\n" << Color::RESET;
-            }
+        else if (dChoice == 3) {
+            std::cout << Color::BRIGHT_YELLOW << "Enter fixed discount amount (RM): " << Color::RESET;
+            std::cin >> discAmount;
+            if (discAmount < 0) discAmount = 0;
+            if (discAmount > sub) discAmount = sub;
+            discPercentageShown = (sub > 0) ? (discAmount / sub) * 100.0 : 0.0;
         }
+        else {
+            std::cout << Color::BRIGHT_YELLOW << "Discount modification cancelled.\n" << Color::RESET;
+            return;
+        }
+
+        target.discountAmount = discAmount;
+        target.taxAmount = (sub - target.discountAmount) * 0.06;
+        target.totalAmount = (sub - target.discountAmount) + target.taxAmount;
+
+        saveInvoicesToFile(invoices);
+
+        std::cout << std::fixed << std::setprecision(2);
+        std::cout << Color::BRIGHT_CYAN << "Discount applied (" << discPercentageShown << "% equivalent / RM" << target.discountAmount << " off).\n";
+        std::cout << "New Total (incl. 6% Tax): RM" << target.totalAmount << "\n";
+        std::cout << "Changes stored to file successfully.\n" << Color::RESET;
     }
-    else {
-        std::cout << Color::BRIGHT_YELLOW << "\nThis bill is already paid.\n" << Color::RESET;
-        std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Update Payment Method\n";
-        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Revert Payment (undo paid status)\n";
-        std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Back\n";
-        std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
-        int pc;
-        if (!(std::cin >> pc)) { std::cout << Color::BRIGHT_RED << "Invalid input!\n" << Color::RESET; clearCinError(); return; }
-
-        if (pc == 1) {
-            std::cout << Color::BRIGHT_YELLOW << "Enter new method (Cash/Card/E-Wallet): " << Color::RESET;
-            std::cin >> target.paymentType;
+    else if (uc == 3) {
+        std::cout << Color::BRIGHT_YELLOW << "Confirm Delete? (Y/N): " << Color::RESET;
+        char confirm;
+        std::cin >> confirm;
+        if (std::toupper(confirm) == 'Y') {
+            auto eraseIt = std::find_if(invoices.begin(), invoices.end(), [&](const Invoice& inv) {
+                return inv.invoiceId == target.invoiceId;
+                });
+            if (eraseIt != invoices.end()) {
+                invoices.erase(eraseIt);
+            }
             saveInvoicesToFile(invoices);
-            std::cout << Color::BRIGHT_CYAN << "Payment method updated and saved successfully.\n" << Color::RESET;
+            std::cout << Color::BRIGHT_CYAN << "Bill deleted and changes stored to file successfully.\n" << Color::RESET;
         }
-        else if (pc == 2) {
-            std::cout << Color::BRIGHT_YELLOW << "Confirm Revert Payment? (Y/N): " << Color::RESET;
-            char confirm;
-            std::cin >> confirm;
-            if (std::toupper(confirm) == 'Y') {
-                target.isPaid = false;
-                target.paymentType = "Unpaid";
-
-                auto custIt = std::find_if(customers.begin(), customers.end(), [&](Customer& c) {
-                    return c.phone == target.customerId;
-                    });
-                if (custIt != customers.end()) {
-                    custIt->totalPurchases -= target.totalAmount;
-                    if (custIt->totalPurchases < 0) custIt->totalPurchases = 0;
-                    updateCustomerTier(*custIt);
-                }
-
-                saveInvoicesToFile(invoices);
-                saveCustomersToFile(customers);
-
-                std::cout << Color::BRIGHT_CYAN << "Payment Reverted -> Recalculated Customer Spending -> Recalculated Membership -> Saved to File.\n" << Color::RESET;
-            }
-            else {
-                std::cout << Color::BRIGHT_YELLOW << "Revert cancelled.\n" << Color::RESET;
-            }
+        else {
+            std::cout << Color::BRIGHT_YELLOW << "Delete cancelled.\n" << Color::RESET;
         }
     }
 }
@@ -742,38 +979,6 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     std::cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
 }
 
-void displayInvoices(const std::vector<Invoice>& invoices) {
-    if (invoices.empty()) {
-        std::cout << Color::BRIGHT_YELLOW << "\nNo bill records found in storage.\n" << Color::RESET;
-        return;
-    }
-
-    std::cout << Color::CYAN << "\n------------------------------------------------------------------------------------------------------------------\n" << Color::RESET;
-    std::cout << Color::BRIGHT_YELLOW << Color::BOLD << std::left << std::setw(10) << "Bill ID"
-        << std::setw(10) << "Cust ID"
-        << std::setw(12) << "Plate"
-        << std::setw(12) << "Subtotal"
-        << std::setw(12) << "Discount"
-        << std::setw(12) << "Tax(6%)"
-        << std::setw(12) << "Total(RM)"
-        << std::setw(12) << "Method"
-        << "Status\n" << Color::RESET;
-    std::cout << Color::CYAN << "------------------------------------------------------------------------------------------------------------------\n" << Color::RESET;
-
-    for (const auto& inv : invoices) {
-        double sub = inv.partsCost + inv.laborCost;
-        std::cout << Color::BRIGHT_WHITE << std::left << std::setw(10) << inv.invoiceId
-            << std::setw(10) << inv.customerId
-            << std::setw(12) << inv.licensePlate
-            << std::setw(12) << std::fixed << std::setprecision(2) << sub
-            << std::setw(12) << inv.discountAmount
-            << std::setw(12) << inv.taxAmount
-            << std::setw(12) << inv.totalAmount
-            << std::setw(12) << inv.paymentType
-            << (inv.isPaid ? (Color::BRIGHT_CYAN + "Paid" + Color::RESET) : (Color::BRIGHT_RED + "Unpaid" + Color::RESET)) << "\n";
-    }
-}
-
 void paymentHistory(const std::vector<Customer>& customers, const std::vector<Invoice>& invoices) {
     int choice = -1;
     do {
@@ -781,8 +986,8 @@ void paymentHistory(const std::vector<Customer>& customers, const std::vector<In
         std::cout << Color::CYAN << "\n========================================\n" << Color::RESET;
         std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "              PAYMENT HISTORY            \n" << Color::RESET;
         std::cout << Color::CYAN << "========================================\n" << Color::RESET;
-        std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "View All Bills\n";
-        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Search Bills (Phone / Plate / Bill ID)\n";
+        std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "View Unpaid Bills\n";
+        std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Search Invoice (Paid & Unpaid) by Phone Number\n";
         std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "View Customer Billing History\n";
         std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Back\n";
         std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
@@ -796,42 +1001,12 @@ void paymentHistory(const std::vector<Customer>& customers, const std::vector<In
 
         if (choice == 1) {
             clearScreen();
-            displayInvoices(invoices);
+            displayInvoices(invoices, customers);
             pauseSystem();
         }
         else if (choice == 2) {
             clearScreen();
-            std::cout << Color::BRIGHT_CYAN << "\n1. " << Color::BRIGHT_WHITE << "Search by Customer Phone\n";
-            std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Search by Plate Number\n";
-            std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Search by Bill ID\n";
-            std::cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
-            int sChoice;
-            if (!(std::cin >> sChoice)) {
-                std::cout << Color::BRIGHT_RED << "Invalid input!\n" << Color::RESET;
-                clearCinError();
-                pauseSystem();
-                continue;
-            }
-            if (sChoice >= 1 && sChoice <= 3) {
-                std::string sInput;
-                std::cout << Color::BRIGHT_YELLOW << "Enter search keyword: " << Color::RESET;
-                std::cin >> sInput;
-                std::string key = toUpper(sInput);
-                bool found = false;
-
-                for (const auto& inv : invoices) {
-                    if ((sChoice == 1 && toUpper(inv.customerId) == key) ||
-                        (sChoice == 2 && toUpper(inv.licensePlate) == key) ||
-                        (sChoice == 3 && toUpper(inv.invoiceId) == key)) {
-                        std::cout << Color::BRIGHT_CYAN << "Found Bill: " << Color::BRIGHT_WHITE << inv.invoiceId << " | Plate: " << inv.licensePlate
-                            << " | Total: RM" << std::fixed << std::setprecision(2) << inv.totalAmount
-                            << " | Method: " << inv.paymentType
-                            << " | Status: " << (inv.isPaid ? (Color::BRIGHT_CYAN + "Paid" + Color::RESET) : (Color::BRIGHT_RED + "Unpaid" + Color::RESET)) << "\n";
-                        found = true;
-                    }
-                }
-                if (!found) std::cout << Color::BRIGHT_YELLOW << "No matching bills found.\n" << Color::RESET;
-            }
+            searchInvoiceByPhone(const_cast<std::vector<Invoice>&>(invoices), const_cast<std::vector<Customer>&>(customers));
             pauseSystem();
         }
         else if (choice == 3) {
@@ -848,7 +1023,7 @@ void paymentHistory(const std::vector<Customer>& customers, const std::vector<In
 
 void viewCustomerHistory(const std::vector<Customer>& customers, const std::vector<Invoice>& invoices) {
     std::string input;
-    std::cout << Color::BRIGHT_YELLOW << "\nEnter Customer Name, Phone Number, or License Plate (or 0 to Return): " << Color::RESET;
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter Customer Phone Number (or 0 to Return): " << Color::RESET;
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::getline(std::cin, input);
     if (input == "0") return;
@@ -857,26 +1032,14 @@ void viewCustomerHistory(const std::vector<Customer>& customers, const std::vect
     const Customer* foundCustomer = nullptr;
 
     for (const auto& c : customers) {
-        if (toUpper(c.name) == searchKey || c.phone == searchKey) {
+        if (c.phone == searchKey) {
             foundCustomer = &c;
             break;
         }
     }
 
     if (!foundCustomer) {
-        for (const auto& c : customers) {
-            for (const auto& v : c.vehicles) {
-                if (toUpper(v.licensePlate) == searchKey) {
-                    foundCustomer = &c;
-                    break;
-                }
-            }
-            if (foundCustomer) break;
-        }
-    }
-
-    if (!foundCustomer) {
-        std::cout << Color::BRIGHT_RED << "ERROR: No customer or vehicle record found for [" << searchKey << "]!\n" << Color::RESET;
+        std::cout << Color::BRIGHT_RED << "ERROR: No customer record found for Phone Number [" << searchKey << "]!\n" << Color::RESET;
         return;
     }
 

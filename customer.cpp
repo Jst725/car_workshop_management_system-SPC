@@ -1,11 +1,14 @@
 #include "customer.h"
+#include "billing.h"
 #include "file_storage.h"
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <vector>
 #include <cctype>
 #include <limits>
 #include <cstdlib>
+#include <algorithm>
 
 using namespace std;
 
@@ -36,6 +39,12 @@ static string toUpper(string str) {
         c = static_cast<char>(toupper(static_cast<unsigned char>(c)));
     }
     return str;
+}
+
+// Helper: Truncate/shorten long text descriptions for aligned menu outputs
+static string shortenText(const string& str, size_t maxLen = 30) {
+    if (str.length() <= maxLen) return str;
+    return str.substr(0, maxLen - 3) + "...";
 }
 
 // ===================================================
@@ -111,11 +120,57 @@ bool isPlateTaken(const vector<Customer>& customers, const string& plate) {
     return false;
 }
 
+// Helper: Print detailed breakdown slip for a single invoice record
+static void printHistoryDetailSlip(const Invoice& inv, const string& ownerName) {
+    cout << Color::CYAN << "\n========================================================================================\n" << Color::RESET;
+    cout << Color::BRIGHT_YELLOW << Color::BOLD << "                         VEHICLE DETAILED SERVICE RECORD                        \n" << Color::RESET;
+    cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
+    cout << fixed << setprecision(2);
+    cout << Color::BRIGHT_CYAN << "Bill ID         : " << Color::BRIGHT_WHITE << inv.invoiceId << "\n";
+    cout << Color::BRIGHT_CYAN << "Customer        : " << Color::BRIGHT_WHITE << ownerName << " (Phone: " << inv.customerId << ")\n";
+    cout << Color::BRIGHT_CYAN << "License Plate   : " << Color::BRIGHT_WHITE << inv.licensePlate << "\n";
+    cout << Color::BRIGHT_CYAN << "Service Date    : " << Color::BRIGHT_WHITE << inv.date << "\n";
+    cout << Color::CYAN << "----------------------------------------------------------------------------------------\n" << Color::RESET;
+    cout << Color::BRIGHT_YELLOW << Color::BOLD << left << setw(12) << "Type"
+        << setw(34) << "Description"
+        << setw(8) << "Qty"
+        << setw(18) << "Unit Price(RM)"
+        << "Total Price(RM)\n" << Color::RESET;
+    cout << Color::CYAN << "----------------------------------------------------------------------------------------\n" << Color::RESET;
+
+    if (inv.items.empty()) {
+        double defaultUnit = inv.partsCost + inv.laborCost;
+        cout << Color::BRIGHT_WHITE << left << setw(12) << "Service"
+            << setw(34) << shortenText("General Service & Repair", 32)
+            << setw(8) << 1
+            << setw(18) << defaultUnit
+            << defaultUnit << "\n" << Color::RESET;
+    }
+    else {
+        for (const auto& item : inv.items) {
+            cout << Color::BRIGHT_WHITE << left << setw(12) << item.itemType
+                << setw(34) << shortenText(item.description, 32)
+                << setw(8) << item.quantity
+                << setw(18) << item.unitPrice
+                << item.totalPrice << "\n" << Color::RESET;
+        }
+    }
+
+    double subtotal = inv.partsCost + inv.laborCost;
+    cout << Color::CYAN << "----------------------------------------------------------------------------------------\n" << Color::RESET;
+    cout << Color::BRIGHT_CYAN << "Subtotal (Parts: RM" << inv.partsCost << " | Labor: RM" << inv.laborCost << "): RM" << subtotal << "\n";
+    cout << Color::BRIGHT_CYAN << "Discount Amount : -RM" << inv.discountAmount << "\n";
+    cout << Color::BRIGHT_CYAN << "Service Tax (6%): RM" << inv.taxAmount << "\n";
+    cout << Color::BRIGHT_YELLOW << Color::BOLD << "TOTAL AMOUNT    : RM" << inv.totalAmount << "\n" << Color::RESET;
+    cout << Color::BRIGHT_CYAN << "Payment Status  : " << (inv.isPaid ? (Color::BRIGHT_CYAN + "PAID" + Color::RESET) : (Color::BRIGHT_RED + "UNPAID" + Color::RESET)) << "\n";
+    cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
+}
+
 // ===================================================
 // MENU
 // ===================================================
 
-void customerMenu(vector<Customer>& customers) {
+void customerMenu(vector<Customer>& customers, const vector<Invoice>& invoices) {
     int choice = -1;
     do {
         clearScreen();
@@ -125,9 +180,10 @@ void customerMenu(vector<Customer>& customers) {
         cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Register New Customer\n";
         cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Add Vehicle to Customer\n";
         cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "View All Customers\n";
-        cout << Color::BRIGHT_CYAN << "4. " << Color::BRIGHT_WHITE << "Search Customer\n";
-        cout << Color::BRIGHT_CYAN << "5. " << Color::BRIGHT_WHITE << "Edit Customer\n";
-        cout << Color::BRIGHT_CYAN << "6. " << Color::BRIGHT_WHITE << "Delete Customer\n";
+        cout << Color::BRIGHT_CYAN << "4. " << Color::BRIGHT_WHITE << "View Vehicle Service History\n";
+        cout << Color::BRIGHT_CYAN << "5. " << Color::BRIGHT_WHITE << "Search Customer\n";
+        cout << Color::BRIGHT_CYAN << "6. " << Color::BRIGHT_WHITE << "Edit Customer\n";
+        cout << Color::BRIGHT_CYAN << "7. " << Color::BRIGHT_WHITE << "Delete Customer\n";
         cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Return to Main Menu\n";
         cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
         cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
@@ -156,14 +212,18 @@ void customerMenu(vector<Customer>& customers) {
             break;
         case 4:
             clearScreen();
-            searchCustomer(customers);
+            viewVehicleHistory(customers, invoices);
             break;
         case 5:
+            clearScreen();
+            searchCustomer(customers);
+            break;
+        case 6:
             clearScreen();
             editCustomer(customers);
             saveCustomersToFile(customers);
             break;
-        case 6:
+        case 7:
             clearScreen();
             deleteCustomer(customers);
             saveCustomersToFile(customers);
@@ -219,17 +279,19 @@ void registerCustomer(vector<Customer>& customers) {
     }
 
     // ---- Membership Tier ----
-    // NOTE: Tier is normally auto-upgraded by billing.cpp based on totalPurchases
-    // (Regular -> Silver -> Gold -> VIP). New customers start as Regular.
     c.membershipTier = "Regular";
     c.totalPurchases = 0.0;
 
     customers.push_back(c);
 
     cout << Color::BRIGHT_CYAN << "\n[SUCCESS] Customer registered!\n" << Color::RESET;
-    cout << Color::BRIGHT_WHITE << "Phone Number (use this to identify the customer): " << c.phone << "\n";
-    cout << "Membership Tier: Regular (upgrades automatically as they spend more)\n";
+    cout << Color::BRIGHT_WHITE << "Phone Number: " << c.phone << "\n";
+    cout << "Membership Tier: Regular \n";
     cout << "(Use option 2 - 'Add Vehicle to Customer' to register their vehicle(s).)\n" << Color::RESET;
+
+    cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin.get();
 }
 
 // ===================================================
@@ -307,6 +369,10 @@ void addVehicleToCustomer(vector<Customer>& customers) {
     target->vehicles.push_back(v);
     cout << Color::BRIGHT_CYAN << "\n[SUCCESS] Vehicle " << Color::BRIGHT_WHITE << v.licensePlate << Color::BRIGHT_CYAN << " added to " << Color::BRIGHT_WHITE << target->name
         << Color::BRIGHT_CYAN << ". Total vehicles on file: " << target->vehicles.size() << "\n" << Color::RESET;
+
+    cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin.get();
 }
 
 // ===================================================
@@ -354,6 +420,117 @@ void viewCustomers(const vector<Customer>& customers) {
 }
 
 // ===================================================
+// VIEW VEHICLE SERVICE HISTORY (Supports multiple records)
+// ===================================================
+
+void viewVehicleHistory(const vector<Customer>& customers, const vector<Invoice>& invoices) {
+    cout << Color::BRIGHT_YELLOW << Color::BOLD << "\n>>> VIEW VEHICLE SERVICE HISTORY <<<\n" << Color::RESET;
+    if (customers.empty()) {
+        cout << Color::BRIGHT_YELLOW << "No customers or vehicles registered in the system.\n" << Color::RESET;
+        cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cin.get();
+        return;
+    }
+
+    string query;
+    cout << Color::BRIGHT_YELLOW << "Enter License Plate or Phone Number (or 0 to Return): " << Color::RESET;
+    cin >> query;
+    if (query == "0") return;
+
+    string key = toUpper(query);
+    const Customer* owner = nullptr;
+    string selectedPlate = "";
+
+    // Search owner and locate vehicle license plate
+    for (const auto& c : customers) {
+        if (toUpper(c.phone) == key) {
+            owner = &c;
+            if (!c.vehicles.empty()) {
+                selectedPlate = c.vehicles[0].licensePlate;
+            }
+            break;
+        }
+        for (const auto& v : c.vehicles) {
+            if (toUpper(v.licensePlate) == key) {
+                owner = &c;
+                selectedPlate = v.licensePlate;
+                break;
+            }
+        }
+        if (owner) break;
+    }
+
+    if (!owner || selectedPlate.empty()) {
+        cout << Color::BRIGHT_RED << "[ERROR] No matching vehicle or customer found for: [" << query << "]\n" << Color::RESET;
+        cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cin.get();
+        return;
+    }
+
+    // Collect all invoice records linked to this license plate
+    vector<const Invoice*> historyRecords;
+    for (const auto& inv : invoices) {
+        if (toUpper(inv.licensePlate) == toUpper(selectedPlate)) {
+            historyRecords.push_back(&inv);
+        }
+    }
+
+    if (historyRecords.empty()) {
+        cout << Color::BRIGHT_YELLOW << "\nNo past service history records found for vehicle [" << selectedPlate << "].\n" << Color::RESET;
+        cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cin.get();
+        return;
+    }
+
+    // Display summary list of all service history entries
+    cout << Color::CYAN << "\n========================================================================================\n" << Color::RESET;
+    cout << Color::BRIGHT_YELLOW << Color::BOLD << "                         SERVICE HISTORY LIST: " << selectedPlate << "                         \n" << Color::RESET;
+    cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
+    cout << Color::BRIGHT_CYAN << "Owner Name    : " << Color::BRIGHT_WHITE << owner->name << "\n";
+    cout << Color::BRIGHT_CYAN << "Phone Number  : " << Color::BRIGHT_WHITE << owner->phone << "\n";
+    cout << Color::BRIGHT_CYAN << "Total Records : " << Color::BRIGHT_WHITE << historyRecords.size() << "\n";
+    cout << Color::CYAN << "----------------------------------------------------------------------------------------\n" << Color::RESET;
+
+    cout << Color::BRIGHT_YELLOW << Color::BOLD << left << setw(6) << "No."
+        << setw(12) << "Bill ID"
+        << setw(14) << "Date"
+        << setw(14) << "Parts (RM)"
+        << setw(14) << "Labor (RM)"
+        << setw(15) << "Total (RM)"
+        << "Status\n" << Color::RESET;
+    cout << Color::CYAN << "----------------------------------------------------------------------------------------\n" << Color::RESET;
+
+    for (size_t i = 0; i < historyRecords.size(); ++i) {
+        const auto& inv = *historyRecords[i];
+        cout << Color::BRIGHT_WHITE << left << setw(6) << (i + 1)
+            << setw(12) << inv.invoiceId
+            << setw(14) << inv.date
+            << setw(14) << fixed << setprecision(2) << inv.partsCost
+            << setw(14) << inv.laborCost
+            << setw(15) << inv.totalAmount
+            << (inv.isPaid ? (Color::BRIGHT_CYAN + "PAID" + Color::RESET) : (Color::BRIGHT_RED + "UNPAID" + Color::RESET)) << "\n";
+    }
+    cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
+
+    // Prompt user to select a record to view details
+    cout << Color::BRIGHT_YELLOW << "\nEnter Record No. to view detailed breakdown (1-" << historyRecords.size() << ") or 0 to Cancel: " << Color::RESET;
+    int choice;
+    if (cin >> choice && choice >= 1 && choice <= static_cast<int>(historyRecords.size())) {
+        printHistoryDetailSlip(*historyRecords[choice - 1], owner->name);
+    }
+    else if (choice != 0) {
+        cout << Color::BRIGHT_RED << "Invalid selection index.\n" << Color::RESET;
+    }
+
+    cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin.get();
+}
+
+// ===================================================
 // SEARCH CUSTOMER (by phone number only)
 // ===================================================
 
@@ -393,18 +570,13 @@ void searchCustomer(const vector<Customer>& customers) {
         cout << Color::BRIGHT_RED << "[ERROR] Customer not found.\n" << Color::RESET;
     }
 
-    // Pause so the search results don't clear instantly
     cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
     cin.get();
 }
 
 // ===================================================
-// EDIT CUSTOMER (by phone number)
-// Only non-vehicle fields can be changed here (Name, Membership Tier).
-// Phone number is NOT editable - it's the key used to look up this customer
-// everywhere else in the system (appointments, invoices), so changing it here
-// would silently break those links elsewhere.
+// EDIT CUSTOMER
 // ===================================================
 
 void editCustomer(vector<Customer>& customers) {
@@ -421,21 +593,38 @@ void editCustomer(vector<Customer>& customers) {
 
     if (!target) {
         cout << Color::BRIGHT_RED << "[ERROR] Customer not found.\n" << Color::RESET;
+        cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cin.get();
         return;
     }
 
     int choice = -1;
     do {
         cout << Color::CYAN << "\n----------------------------------------\n" << Color::RESET;
-        cout << Color::BRIGHT_YELLOW << Color::BOLD << "Editing: " << target->name << " (" << target->phone << ")\n" << Color::RESET;
+        cout << Color::BRIGHT_YELLOW << Color::BOLD << "Editing Customer: " << target->name << " (" << target->phone << ")\n" << Color::RESET;
         cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
         cout << Color::BRIGHT_CYAN << "Name          : " << Color::BRIGHT_WHITE << target->name << "\n";
         cout << Color::BRIGHT_CYAN << "Phone         : " << Color::BRIGHT_WHITE << target->phone << "\n";
-        cout << Color::BRIGHT_CYAN << "Tier          : " << Color::BRIGHT_WHITE << target->membershipTier << "\n";
+        cout << Color::BRIGHT_CYAN << "Tier (Auto)   : " << Color::BRIGHT_WHITE << target->membershipTier << "\n";
         cout << Color::BRIGHT_CYAN << "Total Spent   : RM" << Color::BRIGHT_WHITE << fixed << setprecision(2) << target->totalPurchases << "\n";
         cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
-        cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Edit Name\n";
-        cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Edit Membership Tier\n";
+        cout << Color::BRIGHT_CYAN << "Vehicles (" << target->vehicles.size() << " registered):\n" << Color::RESET;
+        if (target->vehicles.empty()) {
+            cout << Color::LIGHT_GRAY << "  (No vehicles registered)\n" << Color::RESET;
+        }
+        else {
+            for (size_t i = 0; i < target->vehicles.size(); i++) {
+                cout << Color::BRIGHT_WHITE << "  " << (i + 1) << ". " << target->vehicles[i].licensePlate
+                    << " [" << target->vehicles[i].brand << " " << target->vehicles[i].model << "] - Status: "
+                    << target->vehicles[i].status << "\n";
+            }
+        }
+        cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+        cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Edit Customer Name\n";
+        cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Edit Existing Vehicle Details\n";
+        cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Add New Vehicle\n";
+        cout << Color::BRIGHT_CYAN << "4. " << Color::BRIGHT_WHITE << "Remove Vehicle\n";
         cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Done\n";
         cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
         cout << Color::BRIGHT_YELLOW << "Enter choice: " << Color::RESET;
@@ -447,42 +636,120 @@ void editCustomer(vector<Customer>& customers) {
             continue;
         }
 
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
         switch (choice) {
         case 1: {
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
             string newName;
             while (true) {
-                cout << Color::BRIGHT_YELLOW << "Enter New Name (Letters Only): " << Color::RESET;
+                cout << Color::BRIGHT_YELLOW << "Enter New Customer Name (Letters Only): " << Color::RESET;
                 getline(cin, newName);
                 if (isValidName(newName)) break;
                 cout << Color::BRIGHT_RED << "[ERROR] Invalid name! Letters and spaces only.\n" << Color::RESET;
             }
             target->name = newName;
-            cout << Color::BRIGHT_CYAN << "[SUCCESS] Name updated.\n" << Color::RESET;
+            cout << Color::BRIGHT_CYAN << "[SUCCESS] Customer name updated.\n" << Color::RESET;
             break;
         }
         case 2: {
-            int tierChoice = 0;
-            while (true) {
-                cout << Color::BRIGHT_YELLOW << "Select New Membership Tier:\n" << Color::RESET;
-                cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Regular\n";
-                cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Silver\n";
-                cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Gold\n";
-                cout << Color::BRIGHT_CYAN << "4. " << Color::BRIGHT_WHITE << "VIP\n";
-                cout << Color::BRIGHT_YELLOW << "Choice: " << Color::RESET;
-                if (!(cin >> tierChoice) || tierChoice < 1 || tierChoice > 4) {
-                    cout << Color::BRIGHT_RED << "[ERROR] Invalid choice!\n" << Color::RESET;
-                    cin.clear();
-                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                    continue;
-                }
+            if (target->vehicles.empty()) {
+                cout << Color::BRIGHT_RED << "[ERROR] Customer has no vehicles to edit!\n" << Color::RESET;
                 break;
             }
-            if (tierChoice == 1) target->membershipTier = "Regular";
-            else if (tierChoice == 2) target->membershipTier = "Silver";
-            else if (tierChoice == 3) target->membershipTier = "Gold";
-            else target->membershipTier = "VIP";
-            cout << Color::BRIGHT_CYAN << "[SUCCESS] Membership tier updated.\n" << Color::RESET;
+            int vIndex = -1;
+            cout << Color::BRIGHT_YELLOW << "Select vehicle number to edit (1-" << target->vehicles.size() << "): " << Color::RESET;
+            if (!(cin >> vIndex) || vIndex < 1 || vIndex > static_cast<int>(target->vehicles.size())) {
+                cout << Color::BRIGHT_RED << "[ERROR] Invalid selection!\n" << Color::RESET;
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                break;
+            }
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+            Vehicle& v = target->vehicles[vIndex - 1];
+
+            cout << Color::BRIGHT_YELLOW << "Updating vehicle " << v.licensePlate << "\n" << Color::RESET;
+            cout << Color::BRIGHT_YELLOW << "Enter New Brand (Leave blank to keep '" << v.brand << "'): " << Color::RESET;
+            string brand;
+            getline(cin, brand);
+            if (!brand.empty() && isValidVehicleText(brand)) {
+                v.brand = toUpper(brand);
+            }
+
+            cout << Color::BRIGHT_YELLOW << "Enter New Model (Leave blank to keep '" << v.model << "'): " << Color::RESET;
+            string model;
+            getline(cin, model);
+            if (!model.empty() && isValidVehicleText(model)) {
+                v.model = toUpper(model);
+            }
+
+            cout << Color::BRIGHT_YELLOW << "Enter New Status (Leave blank to keep '" << v.status << "'): " << Color::RESET;
+            string status;
+            getline(cin, status);
+            if (!status.empty()) {
+                v.status = status;
+            }
+
+            cout << Color::BRIGHT_CYAN << "[SUCCESS] Vehicle details updated.\n" << Color::RESET;
+            break;
+        }
+        case 3: {
+            Vehicle v;
+            while (true) {
+                cout << Color::BRIGHT_YELLOW << "\nEnter New Vehicle License Plate: " << Color::RESET;
+                cin >> v.licensePlate;
+                v.licensePlate = toUpper(v.licensePlate);
+
+                if (!isValidPlate(v.licensePlate)) {
+                    cout << Color::BRIGHT_RED << "[ERROR] Plate must contain letters & digits without spaces/symbols!\n" << Color::RESET;
+                }
+                else if (isPlateTaken(customers, v.licensePlate)) {
+                    cout << Color::BRIGHT_RED << "[ERROR] License plate already registered to another customer!\n" << Color::RESET;
+                }
+                else {
+                    break;
+                }
+            }
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+            cout << Color::BRIGHT_YELLOW << "Enter Vehicle Brand: " << Color::RESET;
+            getline(cin, v.brand);
+            v.brand = toUpper(v.brand);
+
+            cout << Color::BRIGHT_YELLOW << "Enter Vehicle Model: " << Color::RESET;
+            getline(cin, v.model);
+            v.model = toUpper(v.model);
+
+            v.lastServiceDate = "N/A";
+            v.status = "Awaiting Parts";
+            v.assignedTechnician = "Unassigned";
+            v.lastPartsUsed = "";
+            v.lastServiceDescription = "";
+            v.partsCost = 0.0;
+            v.laborCost = 0.0;
+            v.currentServiceCost = 0.0;
+
+            target->vehicles.push_back(v);
+            cout << Color::BRIGHT_CYAN << "[SUCCESS] Vehicle " << v.licensePlate << " added to customer.\n" << Color::RESET;
+            break;
+        }
+        case 4: {
+            if (target->vehicles.empty()) {
+                cout << Color::BRIGHT_RED << "[ERROR] Customer has no vehicles to remove!\n" << Color::RESET;
+                break;
+            }
+            int vIndex = -1;
+            cout << Color::BRIGHT_YELLOW << "Select vehicle number to remove (1-" << target->vehicles.size() << "): " << Color::RESET;
+            if (!(cin >> vIndex) || vIndex < 1 || vIndex > static_cast<int>(target->vehicles.size())) {
+                cout << Color::BRIGHT_RED << "[ERROR] Invalid selection!\n" << Color::RESET;
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                break;
+            }
+
+            string plate = target->vehicles[vIndex - 1].licensePlate;
+            target->vehicles.erase(target->vehicles.begin() + (vIndex - 1));
+            cout << Color::BRIGHT_CYAN << "[SUCCESS] Vehicle " << plate << " removed.\n" << Color::RESET;
             break;
         }
         case 0:
@@ -492,6 +759,9 @@ void editCustomer(vector<Customer>& customers) {
             cout << Color::BRIGHT_RED << "Invalid choice!\n" << Color::RESET;
         }
     } while (choice != 0);
+
+    cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to menu..." << Color::RESET;
+    cin.get();
 }
 
 // ===================================================
@@ -522,4 +792,8 @@ void deleteCustomer(vector<Customer>& customers) {
         }
     }
     cout << Color::BRIGHT_RED << "[ERROR] Phone number not found.\n" << Color::RESET;
+
+    cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin.get();
 }

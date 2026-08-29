@@ -6,7 +6,7 @@
 #include <string>
 
 // Main menu for the Customer Management module (matches main.cpp: customerMenu(customers))
-void customerMenu(std::vector<Customer>& customers);
+void customerMenu(std::vector<Customer>& customers, const std::vector<Invoice>& invoices);
 
 // Core customer operations (all keyed by PHONE NUMBER, no customer ID anymore)
 void registerCustomer(std::vector<Customer>& customers);
@@ -15,6 +15,7 @@ void viewCustomers(const std::vector<Customer>& customers);
 void searchCustomer(const std::vector<Customer>& customers);
 void editCustomer(std::vector<Customer>& customers);
 void deleteCustomer(std::vector<Customer>& customers);
+void viewVehicleHistory(const std::vector<Customer>& customers, const std::vector<Invoice>& invoices);
 
 // Validation helpers
 bool isValidName(const std::string& str);

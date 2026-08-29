@@ -314,9 +314,9 @@ void addVehicleToCustomer(vector<Customer>& customers) {
 // ===================================================
 
 void viewCustomers(const vector<Customer>& customers) {
-    cout << Color::CYAN << "\n=================================================================================\n" << Color::RESET;
-    cout << Color::BRIGHT_YELLOW << Color::BOLD << "                              CUSTOMER DIRECTORY                                   \n" << Color::RESET;
-    cout << Color::CYAN << "=================================================================================\n" << Color::RESET;
+    cout << Color::CYAN << "\n============================================================================================\n" << Color::RESET;
+    cout << Color::BRIGHT_YELLOW << Color::BOLD << "                                    CUSTOMER DIRECTORY                                   \n" << Color::RESET;
+    cout << Color::CYAN << "============================================================================================\n" << Color::RESET;
 
     if (customers.empty()) {
         cout << Color::BRIGHT_YELLOW << "No customer records found.\n" << Color::RESET;
@@ -326,7 +326,7 @@ void viewCustomers(const vector<Customer>& customers) {
         for (size_t i = 0; i < customers.size(); i++) {
             const Customer& c = customers[i];
             cout << Color::BRIGHT_CYAN << "[" << (i + 1) << "] " << Color::BRIGHT_WHITE << left << setw(20) << c.name
-                << Color::BRIGHT_CYAN << " | Phone: " << Color::BRIGHT_WHITE << setw(12) << c.phone
+                << Color::BRIGHT_CYAN << " | Phone: " << Color::BRIGHT_WHITE << setw(10) << c.phone
                 << Color::BRIGHT_CYAN << " | Tier: " << Color::BRIGHT_WHITE << setw(8) << c.membershipTier
                 << Color::BRIGHT_CYAN << " | Total Spent: RM" << Color::BRIGHT_WHITE << fixed << setprecision(2) << c.totalPurchases << "\n";
 
@@ -342,7 +342,7 @@ void viewCustomers(const vector<Customer>& customers) {
                     totalVehicles++;
                 }
             }
-            cout << Color::CYAN << "---------------------------------------------------------------------------------\n" << Color::RESET;
+            cout << Color::CYAN << "--------------------------------------------------------------------------------------------\n" << Color::RESET;
         }
 
         cout << Color::BRIGHT_YELLOW << "Total Customers: " << customers.size() << " | Total Vehicles: " << totalVehicles << "\n" << Color::RESET;
@@ -430,7 +430,7 @@ void editCustomer(vector<Customer>& customers) {
         cout << Color::BRIGHT_YELLOW << Color::BOLD << "Editing: " << target->name << " (" << target->phone << ")\n" << Color::RESET;
         cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
         cout << Color::BRIGHT_CYAN << "Name          : " << Color::BRIGHT_WHITE << target->name << "\n";
-        cout << Color::BRIGHT_CYAN << "Phone         : " << Color::BRIGHT_WHITE << target->phone << " (cannot be changed - used to link records)\n";
+        cout << Color::BRIGHT_CYAN << "Phone         : " << Color::BRIGHT_WHITE << target->phone << "\n";
         cout << Color::BRIGHT_CYAN << "Tier          : " << Color::BRIGHT_WHITE << target->membershipTier << "\n";
         cout << Color::BRIGHT_CYAN << "Total Spent   : RM" << Color::BRIGHT_WHITE << fixed << setprecision(2) << target->totalPurchases << "\n";
         cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;

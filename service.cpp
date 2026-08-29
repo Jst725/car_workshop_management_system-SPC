@@ -12,7 +12,6 @@
 #include <cstdlib>
 #include <limits>
 
-// ANSI Light Color Definitions (No Blue, Green, or Purple)
 namespace Color {
     const std::string RESET = "\033[0m";
     const std::string BOLD = "\033[1m";
@@ -24,7 +23,6 @@ namespace Color {
     const std::string LIGHT_GRAY = "\033[37m";
 }
 
-// Helper: Cross-platform screen clear function
 static void clearScreen() {
 #ifdef _WIN32
     system("cls");
@@ -33,13 +31,11 @@ static void clearScreen() {
 #endif
 }
 
-// Helper: Safely clear std::cin state upon bad input
 static void clearCinError() {
     std::cin.clear();
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
-// Helper: Prompts the user to press Enter before continuing
 static void pauseConsole() {
     std::cout << Color::BRIGHT_YELLOW << "\nPress Enter to continue..." << Color::RESET;
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -53,7 +49,6 @@ static std::string toUpper(std::string str) {
     return str;
 }
 
-// Truncates long item names so table columns stay aligned
 static std::string shortenText(const std::string& str, size_t maxLen = 24) {
     if (str.length() <= maxLen) return str;
     return str.substr(0, maxLen - 3) + "...";
@@ -84,11 +79,9 @@ static bool hasActiveAppointment(const std::string& plate, const std::vector<App
     return false;
 }
 
-// Parses raw appointment strings into individual short service names and prices
 static std::vector<std::pair<std::string, double>> parseServiceItems(const std::string& input) {
     std::vector<std::pair<std::string, double>> items;
 
-    // Splits multi-item string by '|' delimiter
     std::stringstream ss(input);
     std::string segment;
 
@@ -152,20 +145,16 @@ static void syncAppointmentToPartsCost(Vehicle& vehicle, const std::vector<Appoi
                 if (!itemExists) {
                     PartItem part;
                     part.partId = itemPartId;
-                    part.name = parsedItems[idx].first;   // Short description
+                    part.name = parsedItems[idx].first;
                     part.quantity = 1;
-                    part.unitPrice = parsedItems[idx].second; // Fee or RM 0.00 if unpriced
+                    part.unitPrice = parsedItems[idx].second;
                     part.price = part.unitPrice;
-                    // This item represents the service/problem the customer booked
-                    // during their appointment - it must be locked from editing here.
                     part.isFromAppointment = true;
                     vehicle.parts.push_back(part);
                 }
             }
         }
     }
-
-    // Recalculate parts subtotal and update active service logs
     vehicle.partsCost = 0.0;
     vehicle.activeServiceLogs.clear();
     for (const auto& item : vehicle.parts) {
@@ -327,12 +316,12 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                 int choice = -1;
                 do {
                     clearScreen();
-                    std::cout << Color::CYAN << "\n============================================================\n" << Color::RESET
-                        << Color::BRIGHT_YELLOW << Color::BOLD << "  EDIT SERVICE & PRICING: " << Color::BRIGHT_WHITE << v.licensePlate << "\n" << Color::RESET
-                        << Color::CYAN << "============================================================\n" << Color::RESET
+                    std::cout << Color::CYAN << "\n==========================================================================\n" << Color::RESET
+                        << Color::BRIGHT_YELLOW << Color::BOLD << "         EDIT SERVICE & PRICING: " << Color::BRIGHT_WHITE << v.licensePlate << "\n" << Color::RESET
+                        << Color::CYAN << "==========================================================================\n" << Color::RESET
                         << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Add Additional Part / Component\n"
                         << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Labor Charge (Current: RM " << std::fixed << std::setprecision(2) << v.laborCost << ")\n"
-                        << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET
+                        << Color::CYAN << "--------------------------------------------------------------------------\n" << Color::RESET
                         << Color::BRIGHT_YELLOW << "Logged Appointment Services & Workshop Parts:\n" << Color::RESET;
 
                     int optionNum = 3;
@@ -347,7 +336,7 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                             << std::setw(6) << "Qty"
                             << std::setw(12) << "Unit(RM)"
                             << "Total(RM)\n" << Color::RESET
-                            << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET;
+                            << Color::CYAN << "--------------------------------------------------------------------------\n" << Color::RESET;
                         for (size_t i = 0; i < v.parts.size(); ++i) {
                             const PartItem& p = v.parts[i];
                             std::cout << Color::BRIGHT_WHITE << std::left
@@ -359,13 +348,13 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                                 << std::fixed << std::setprecision(2) << p.price << "\n" << Color::RESET;
                         }
                     }
-                    std::cout << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET
+                    std::cout << Color::CYAN << "--------------------------------------------------------------------------\n" << Color::RESET
                         << Color::BRIGHT_CYAN << "Parts Subtotal: RM " << Color::BRIGHT_WHITE << std::fixed << std::setprecision(2) << v.partsCost
                         << Color::BRIGHT_CYAN << "   |   Labor: RM " << Color::BRIGHT_WHITE << v.laborCost
                         << Color::BRIGHT_CYAN << "   |   TOTAL: RM " << Color::BRIGHT_WHITE << v.currentServiceCost << "\n"
-                        << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET
+                        << Color::CYAN << "--------------------------------------------------------------------------\n" << Color::RESET
                         << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Save & Exit\n"
-                        << Color::CYAN << "------------------------------------------------------------\n" << Color::RESET
+                        << Color::CYAN << "--------------------------------------------------------------------------\n" << Color::RESET
                         << Color::BRIGHT_YELLOW << "Select item number to change (0 to finish): " << Color::RESET;
 
                     if (!(std::cin >> choice)) {
@@ -474,7 +463,6 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
                         }
                     }
 
-                    // Recalculate Totals
                     v.partsCost = 0.0;
                     v.activeServiceLogs.clear();
                     for (const auto& item : v.parts) {
@@ -490,13 +478,13 @@ void updateService(std::vector<Customer>& customers, const std::vector<Appointme
 
                 } while (choice != 0);
 
-                std::cout << Color::CYAN << "\n========================================\n" << Color::RESET
+                std::cout << Color::CYAN << "\n==================================================\n" << Color::RESET
                     << Color::BRIGHT_YELLOW << Color::BOLD << "   FINAL UPDATED TOTALS FOR " << v.licensePlate << "\n" << Color::RESET
-                    << Color::CYAN << "========================================\n" << Color::RESET
-                    << Color::BRIGHT_CYAN << "Parts Subtotal (Appointment Included) : RM " << Color::BRIGHT_WHITE << std::fixed << std::setprecision(2) << v.partsCost << "\n"
-                    << Color::BRIGHT_CYAN << "Labor Subtotal                         : RM " << Color::BRIGHT_WHITE << v.laborCost << "\n"
-                    << Color::BRIGHT_CYAN << "TOTAL COST                             : RM " << Color::BRIGHT_WHITE << v.currentServiceCost << "\n"
-                    << Color::CYAN << "========================================\n" << Color::RESET;
+                    << Color::CYAN << "==================================================\n" << Color::RESET
+                    << Color::BRIGHT_CYAN << "Parts Subtotal : RM " << Color::BRIGHT_WHITE << std::fixed << std::setprecision(2) << v.partsCost << "\n"
+                    << Color::BRIGHT_CYAN << "Labor Subtotal : RM " << Color::BRIGHT_WHITE << v.laborCost << "\n"
+                    << Color::BRIGHT_CYAN << "TOTAL COST     : RM " << Color::BRIGHT_WHITE << v.currentServiceCost << "\n"
+                    << Color::CYAN << "==================================================\n" << Color::RESET;
                 return;
             }
         }
@@ -517,48 +505,54 @@ void viewServiceBreakdown(const std::vector<Customer>& customers, const std::vec
         return;
     }
 
-    for (const auto& c : customers) {
-        for (const auto& v : c.vehicles) {
+    // Cast away constness on customer loop to safely synchronize vehicle appointments if parts vector is missing entries
+    for (auto& c : const_cast<std::vector<Customer>&>(customers)) {
+        for (auto& v : c.vehicles) {
             if (toUpper(v.licensePlate) == plate) {
+
+                // Ensure active appointment services are populated before displaying breakdown
+                syncAppointmentToPartsCost(v, appointments);
+
                 clearScreen();
-                std::cout << Color::CYAN << "\n========================================\n" << Color::RESET
-                    << Color::BRIGHT_YELLOW << Color::BOLD << "        ITEMIZED SERVICE BREAKDOWN      \n" << Color::RESET
-                    << Color::CYAN << "========================================\n" << Color::RESET
-                    << Color::BRIGHT_CYAN << "Vehicle Plate : " << Color::BRIGHT_WHITE << v.licensePlate << " (" << v.brand << " " << v.model << ")\n"
-                    << Color::BRIGHT_CYAN << "Owner         : " << Color::BRIGHT_WHITE << c.name << " (Ph: " << c.phone << ")\n"
-                    << Color::BRIGHT_CYAN << "Technician    : " << Color::BRIGHT_WHITE << v.assignedTechnician << "\n"
-                    << Color::BRIGHT_CYAN << "Status        : " << Color::BRIGHT_WHITE << v.status << "\n"
-                    << Color::CYAN << "----------------------------------------\n" << Color::RESET
-                    << Color::BRIGHT_YELLOW << "Appointment Items & Parts Log:\n" << Color::RESET;
+                std::cout << Color::CYAN << "\n==========================================================================\n" << Color::RESET
+                    << Color::BRIGHT_YELLOW << Color::BOLD << "             ITEMIZED SERVICE BREAKDOWN: " << Color::BRIGHT_WHITE << v.licensePlate << "\n" << Color::RESET
+                    << Color::CYAN << "==========================================================================\n" << Color::RESET
+                    << Color::BRIGHT_CYAN << "Vehicle Model : " << Color::BRIGHT_WHITE << v.brand << " " << v.model << "\n"
+                    << Color::BRIGHT_CYAN << "Owner Name    : " << Color::BRIGHT_WHITE << c.name << " (Ph: " << c.phone << ")\n"
+                    << Color::BRIGHT_CYAN << "Technician    : " << Color::BRIGHT_WHITE << (v.assignedTechnician.empty() ? "Unassigned" : v.assignedTechnician) << "\n"
+                    << Color::BRIGHT_CYAN << "Current Status: " << Color::BRIGHT_WHITE << v.status << "\n"
+                    << Color::CYAN << "--------------------------------------------------------------------------\n" << Color::RESET
+                    << Color::BRIGHT_YELLOW << "Logged Appointment Services & Workshop Parts:\n" << Color::RESET;
+
                 if (v.parts.empty()) {
-                    std::cout << Color::LIGHT_GRAY << "  (No items logged)\n" << Color::RESET;
+                    std::cout << Color::LIGHT_GRAY << "   (No parts or appointment services logged)\n" << Color::RESET;
                 }
                 else {
                     std::cout << Color::BRIGHT_CYAN << std::left
                         << std::setw(5) << "No."
-                        << std::setw(26) << "Description"
-                        << std::setw(10) << "Type"
+                        << std::setw(32) << "Description"
                         << std::setw(6) << "Qty"
                         << std::setw(12) << "Unit(RM)"
                         << "Total(RM)\n" << Color::RESET
-                        << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+                        << Color::CYAN << "--------------------------------------------------------------------------\n" << Color::RESET;
+
                     for (size_t i = 0; i < v.parts.size(); ++i) {
                         const PartItem& p = v.parts[i];
                         std::cout << Color::BRIGHT_WHITE << std::left
                             << std::setw(5) << (i + 1)
-                            << std::setw(26) << shortenText(p.name)
-                            << std::setw(10) << (p.isFromAppointment ? "Locked" : "Workshop")
+                            << std::setw(32) << shortenText(p.name, 30)
                             << std::setw(6) << p.quantity
                             << std::setw(12) << std::fixed << std::setprecision(2) << p.unitPrice
                             << std::fixed << std::setprecision(2) << p.price << "\n" << Color::RESET;
                     }
                 }
-                std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET
-                    << std::fixed << std::setprecision(2)
-                    << Color::BRIGHT_CYAN << "Parts Subtotal (Appointment Included) : RM " << Color::BRIGHT_WHITE << v.partsCost << "\n"
-                    << Color::BRIGHT_CYAN << "Labor Subtotal                         : RM " << Color::BRIGHT_WHITE << v.laborCost << "\n"
-                    << Color::BRIGHT_CYAN << "TOTAL ACCRUED                          : RM " << Color::BRIGHT_WHITE << v.currentServiceCost << "\n"
-                    << Color::CYAN << "========================================\n" << Color::RESET;
+
+                std::cout << Color::CYAN << "--------------------------------------------------------------------------\n" << Color::RESET
+                    << Color::BRIGHT_CYAN << "Parts Subtotal: RM " << Color::BRIGHT_WHITE << std::fixed << std::setprecision(2) << v.partsCost
+                    << Color::BRIGHT_CYAN << "   |   Labor: RM " << Color::BRIGHT_WHITE << v.laborCost
+                    << Color::BRIGHT_CYAN << "   |   TOTAL: RM " << Color::BRIGHT_WHITE << v.currentServiceCost << "\n"
+                    << Color::CYAN << "==========================================================================\n" << Color::RESET;
+
                 return;
             }
         }
@@ -597,14 +591,14 @@ void displayWorkshopVehicle(const std::vector<Customer>& customers, const std::v
     }
 
     clearScreen();
-    std::cout << Color::CYAN << "\n----------------------------------------------------------------------------------------------------\n" << Color::RESET
+    std::cout << Color::CYAN << "\n===================================================================================================================\n" << Color::RESET
         << Color::BRIGHT_CYAN << std::left << std::setw(12) << "Plate"
         << std::setw(16) << "Vehicle"
         << std::setw(18) << "Status"
         << std::setw(18) << "Technician"
         << std::setw(18) << "Owner"
         << "Accrued Cost (RM)\n"
-        << Color::CYAN << "----------------------------------------------------------------------------------------------------\n" << Color::RESET;
+        << Color::CYAN << "------------------------------------------------------------------------------------------------------------------\n" << Color::RESET;
 
     bool empty = true;
     for (const auto& c : customers) {
@@ -631,9 +625,9 @@ void displayWorkshopVehicle(const std::vector<Customer>& customers, const std::v
 }
 
 void checkServiceReminders(const std::vector<Customer>& customers, const std::vector<Appointment>& appointments) {
-    std::cout << Color::CYAN << "\n=======================================================\n" << Color::RESET
-        << Color::BRIGHT_YELLOW << Color::BOLD << "        AUTOMATED SERVICE REMINDER DASHBOARD           \n" << Color::RESET
-        << Color::CYAN << "=======================================================\n" << Color::RESET;
+    std::cout << Color::CYAN << "\n=====================================================================================\n" << Color::RESET
+        << Color::BRIGHT_YELLOW << Color::BOLD << "                       AUTOMATED SERVICE REMINDER DASHBOARD           \n" << Color::RESET
+        << Color::CYAN << "=====================================================================================\n" << Color::RESET;
 
     std::string today = getTodayDate();
     bool overdueFound = false;
@@ -663,9 +657,9 @@ void searchVehicleHistory(const std::vector<Customer>& customers) {
     keyword = toUpper(keyword);
 
     clearScreen();
-    std::cout << Color::CYAN << "\n========================================\n" << Color::RESET
-        << Color::BRIGHT_YELLOW << Color::BOLD << "          VEHICLE SEARCH RESULTS         \n" << Color::RESET
-        << Color::CYAN << "========================================\n" << Color::RESET;
+    std::cout << Color::CYAN << "\n======================================================\n" << Color::RESET
+        << Color::BRIGHT_YELLOW << Color::BOLD << "            VEHICLE SEARCH RESULTS         \n" << Color::RESET
+        << Color::CYAN << "======================================================\n" << Color::RESET;
 
     bool found = false;
     for (const auto& c : customers) {
@@ -679,7 +673,7 @@ void searchVehicleHistory(const std::vector<Customer>& customers) {
                     << Color::BRIGHT_CYAN << "Owner         : " << Color::BRIGHT_WHITE << c.name << " (Ph: " << c.phone << ")\n"
                     << Color::BRIGHT_CYAN << "Current Status: " << Color::BRIGHT_WHITE << v.status << "\n"
                     << Color::BRIGHT_CYAN << "Last Serviced : " << Color::BRIGHT_WHITE << v.lastServiceDate << "\n"
-                    << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+                    << Color::CYAN << "------------------------------------------------------\n" << Color::RESET;
             }
         }
     }

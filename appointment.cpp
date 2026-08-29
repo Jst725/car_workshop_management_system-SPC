@@ -13,7 +13,6 @@
 #include <vector>
 #include <cstdlib>
 
-// ANSI Light Color Definitions (No Blue, Green, or Purple)
 namespace Color {
     const std::string RESET = "\033[0m";
     const std::string BOLD = "\033[1m";
@@ -148,22 +147,6 @@ static bool isValidDate(const std::string& date) {
     }
 
     return (day >= 1 && day <= daysInMonth[month]);
-}
-
-// Verification Helper: Validates HH:MM format (24-hour clock)
-static bool isValidTime(const std::string& timeStr) {
-    if (timeStr.length() != 5) return false;
-    if (timeStr[2] != ':') return false;
-
-    for (int i = 0; i < 5; ++i) {
-        if (i == 2) continue;
-        if (!std::isdigit(static_cast<unsigned char>(timeStr[i]))) return false;
-    }
-
-    int hour = std::stoi(timeStr.substr(0, 2));
-    int minute = std::stoi(timeStr.substr(3, 2));
-
-    return (hour >= 0 && hour <= 23) && (minute >= 0 && minute <= 59);
 }
 
 static std::string getTodayDate() {
@@ -390,9 +373,10 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         }
     }
 
+    // 1. SELECT DATE
     std::string today = getTodayDate();
     while (true) {
-        std::cout << Color::BRIGHT_YELLOW << "Enter Service Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << "\nEnter Service Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
         std::cin >> app.date;
         if (!isValidDate(app.date)) {
             std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n" << Color::RESET;
@@ -405,21 +389,106 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         }
     }
 
+    // 2. SELECT TIME SLOT FROM MENU (09:00 to 22:00, hiding full slots)
+    const std::vector<std::string> allSlots = {
+        "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
+        "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"
+    };
+    const int MAX_CARS_PER_SLOT = 3;
+
     while (true) {
-        std::cout << Color::BRIGHT_YELLOW << "Enter Time Slot (HH:MM in 24-hr format): " << Color::RESET;
-        std::cin >> app.time;
-        if (!isValidTime(app.time)) {
-            std::cout << Color::BRIGHT_RED << "ERROR: Invalid time format! Use HH:MM (00:00 to 23:59).\n" << Color::RESET;
+        std::vector<std::string> availableSlots;
+        std::vector<int> spotsRemainingList;
+
+        for (const auto& slot : allSlots) {
+            int bookedCount = 0;
+            for (const auto& a : appointments) {
+                if (a.isActive && a.date == app.date && a.time == slot) {
+                    bookedCount++;
+                }
+            }
+
+            int spotsLeft = MAX_CARS_PER_SLOT - bookedCount;
+            if (spotsLeft > 0) {
+                availableSlots.push_back(slot);
+                spotsRemainingList.push_back(spotsLeft);
+            }
+        }
+
+        if (availableSlots.empty()) {
+            std::cout << Color::BRIGHT_RED << "\nERROR: All time slots are fully booked for this date! Please choose another date.\n" << Color::RESET;
+            while (true) {
+                std::cout << Color::BRIGHT_YELLOW << "\nEnter New Service Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
+                std::cin >> app.date;
+                if (!isValidDate(app.date)) {
+                    std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n" << Color::RESET;
+                }
+                else if (app.date < today) {
+                    std::cout << Color::BRIGHT_RED << "ERROR: Appointment date cannot be in the past!\n" << Color::RESET;
+                }
+                else {
+                    break;
+                }
+            }
+            continue;
+        }
+
+        std::cout << Color::CYAN << "\n----------------------------------------\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "SELECT AVAILABLE TIME SLOT:\n" << Color::RESET;
+        std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+
+        for (size_t i = 0; i < availableSlots.size(); ++i) {
+            std::cout << Color::BRIGHT_CYAN << (i + 1) << ". " << Color::BRIGHT_WHITE << availableSlots[i]
+                << Color::LIGHT_GRAY << " (" << spotsRemainingList[i] << " spot(s) remaining)\n" << Color::RESET;
+        }
+        std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+        std::cout << Color::BRIGHT_YELLOW << "Choice (1-" << availableSlots.size() << ") [Enter 0 to change date]: " << Color::RESET;
+
+        int slotChoice;
+        if (!(std::cin >> slotChoice)) {
+            std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
+            std::cin.clear();
+            std::cin.ignore(1000, '\n');
+            continue;
+        }
+
+        if (slotChoice == 0) {
+            while (true) {
+                std::cout << Color::BRIGHT_YELLOW << "\nEnter Service Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
+                std::cin >> app.date;
+                if (!isValidDate(app.date)) {
+                    std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n" << Color::RESET;
+                }
+                else if (app.date < today) {
+                    std::cout << Color::BRIGHT_RED << "ERROR: Appointment date cannot be in the past!\n" << Color::RESET;
+                }
+                else {
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if (slotChoice >= 1 && slotChoice <= static_cast<int>(availableSlots.size())) {
+            std::string selectedTime = availableSlots[slotChoice - 1];
+
+            int currentSlotCount = 0;
+            for (const auto& a : appointments) {
+                if (a.isActive && a.date == app.date && a.time == selectedTime) {
+                    currentSlotCount++;
+                }
+            }
+
+            if (currentSlotCount >= MAX_CARS_PER_SLOT) {
+                std::cout << Color::BRIGHT_RED << "ERROR: This slot is fully booked! Please pick another time.\n" << Color::RESET;
+            }
+            else {
+                app.time = selectedTime;
+                break;
+            }
         }
         else {
-            break;
-        }
-    }
-
-    for (const auto& a : appointments) {
-        if (a.isActive && a.date == app.date && a.time == app.time) {
-            std::cout << Color::BRIGHT_RED << "ERROR: Slot already booked!\n" << Color::RESET;
-            return;
+            std::cout << Color::BRIGHT_RED << "Invalid choice! Please select a valid slot number.\n" << Color::RESET;
         }
     }
 
@@ -540,22 +609,28 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         if (!selectedItems.empty()) {
             std::cout << Color::BRIGHT_CYAN << "CURRENTLY SELECTED (" << selectedItems.size() << " item(s)):\n" << Color::RESET;
             for (size_t i = 0; i < selectedItems.size(); ++i) {
+                std::string shortDescription = selectedItems[i].fullDescription;
+                size_t arrowPos = shortDescription.find(" -> ");
+                if (arrowPos != std::string::npos) {
+                    shortDescription = shortDescription.substr(arrowPos + 4);
+                }
+
                 if (selectedItems[i].fee > 0) {
-                    std::cout << "  " << (i + 1) << ". " << Color::BRIGHT_WHITE << selectedItems[i].fullDescription
-                        << Color::BRIGHT_YELLOW << " [Fee: $" << std::fixed << std::setprecision(2) << selectedItems[i].fee << "]\n" << Color::RESET;
+                    std::cout << "  " << (i + 1) << ". " << Color::BRIGHT_WHITE << shortDescription
+                        << Color::BRIGHT_YELLOW << " [Fee: RM" << std::fixed << std::setprecision(2) << selectedItems[i].fee << "]\n" << Color::RESET;
                 }
                 else {
-                    std::cout << "  " << (i + 1) << ". " << Color::BRIGHT_WHITE << selectedItems[i].fullDescription << "\n" << Color::RESET;
+                    std::cout << "  " << (i + 1) << ". " << Color::BRIGHT_WHITE << shortDescription << "\n" << Color::RESET;
                 }
             }
-            std::cout << Color::BRIGHT_YELLOW << "  TOTAL ESTIMATED SERVICE FEE: $" << std::fixed << std::setprecision(2) << totalServiceFee << "\n" << Color::RESET;
+            std::cout << Color::BRIGHT_YELLOW << "  TOTAL ESTIMATED SERVICE FEE: RM" << std::fixed << std::setprecision(2) << totalServiceFee << "\n" << Color::RESET;
             std::cout << Color::CYAN << "------------------------------------------------------------------------\n" << Color::RESET;
         }
 
         std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Car Problems / Repair Issues\n";
         std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Scheduled Maintenance / Servicing\n";
         if (!selectedItems.empty()) {
-            std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_YELLOW << "[DONE] Finish Selection and Proceed ($" << std::fixed << std::setprecision(2) << totalServiceFee << " total)\n" << Color::RESET;
+            std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_YELLOW << "[DONE] Finish Selection and Proceed (RM" << std::fixed << std::setprecision(2) << totalServiceFee << " total)\n" << Color::RESET;
         }
         std::cout << Color::BRIGHT_RED << "0. Cancel Booking\n" << Color::RESET;
         std::cout << Color::CYAN << "------------------------------------------------------------------------\n" << Color::RESET;
@@ -613,7 +688,7 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
                         for (size_t s = 0; s < selectedCat.subOptions.size(); ++s) {
                             if (selectedCat.subOptions[s].fee > 0) {
                                 std::cout << Color::BRIGHT_CYAN << (s + 1) << ". " << Color::BRIGHT_WHITE << selectedCat.subOptions[s].name
-                                    << Color::BRIGHT_YELLOW << " [Fee: $" << std::fixed << std::setprecision(2) << selectedCat.subOptions[s].fee << "]\n"
+                                    << Color::BRIGHT_YELLOW << " [Fee: RM" << std::fixed << std::setprecision(2) << selectedCat.subOptions[s].fee << "]\n"
                                     << Color::LIGHT_GRAY << "    Desc: " << selectedCat.subOptions[s].description << "\n";
                             }
                             else {
@@ -639,7 +714,6 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
                             const auto& sub = selectedCat.subOptions[subChoice - 1];
                             std::string itemStr = "[" + selectedMain.typeName + "] " + selectedCat.categoryName + " -> " + sub.name;
 
-                            // Duplicate check
                             bool exists = false;
                             for (const auto& item : selectedItems) {
                                 if (item.fullDescription == itemStr) {
@@ -655,7 +729,7 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
                                 selectedItems.push_back({ itemStr, sub.fee });
                                 totalServiceFee += sub.fee;
                                 if (sub.fee > 0) {
-                                    std::cout << Color::BRIGHT_CYAN << "\n>>> ADDED SUCCESSFULLY: " << itemStr << " ($" << std::fixed << std::setprecision(2) << sub.fee << ") <<<\n" << Color::RESET;
+                                    std::cout << Color::BRIGHT_CYAN << "\n>>> ADDED SUCCESSFULLY: " << itemStr << " (RM" << std::fixed << std::setprecision(2) << sub.fee << ") <<<\n" << Color::RESET;
                                 }
                                 else {
                                     std::cout << Color::BRIGHT_CYAN << "\n>>> ADDED SUCCESSFULLY: " << itemStr << " <<<\n" << Color::RESET;
@@ -678,16 +752,21 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         }
     }
 
-    // --- CONCATENATE ALL SELECTED SERVICES INTO ONE STRING WITH COST DETAILS ---
     std::string combinedServices = "";
     for (size_t i = 0; i < selectedItems.size(); ++i) {
+        std::string shortDescription = selectedItems[i].fullDescription;
+        size_t arrowPos = shortDescription.find(" -> ");
+        if (arrowPos != std::string::npos) {
+            shortDescription = shortDescription.substr(arrowPos + 4);
+        }
+
         if (selectedItems[i].fee > 0) {
             std::stringstream feeStream;
             feeStream << std::fixed << std::setprecision(2) << selectedItems[i].fee;
-            combinedServices += "(" + std::to_string(i + 1) + ") " + selectedItems[i].fullDescription + " [$" + feeStream.str() + "]";
+            combinedServices += "(" + std::to_string(i + 1) + ") " + shortDescription + " [RM" + feeStream.str() + "]";
         }
         else {
-            combinedServices += "(" + std::to_string(i + 1) + ") " + selectedItems[i].fullDescription;
+            combinedServices += "(" + std::to_string(i + 1) + ") " + shortDescription;
         }
         if (i < selectedItems.size() - 1) {
             combinedServices += " | ";
@@ -697,7 +776,7 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     if (totalServiceFee > 0) {
         std::stringstream totalStream;
         totalStream << std::fixed << std::setprecision(2) << totalServiceFee;
-        combinedServices += " {Total Service Fee: $" + totalStream.str() + "}";
+        combinedServices += " {Total Service Fee: RM" + totalStream.str() + "}";
     }
 
     // --- OPTIONAL REMARK / NOTE INPUT ---
@@ -774,20 +853,14 @@ void generateBookingSlip(const Appointment& app) {
             item = item.substr(arrowPos + 4);
         }
 
-        size_t pricePos = item.find(" [$");
-        if (pricePos != std::string::npos) {
-            std::cout << "  " << (itemCount + 1) << ". " << Color::BRIGHT_WHITE << item << "\n";
-        }
-        else {
-            std::cout << "  " << (itemCount + 1) << ". " << Color::BRIGHT_WHITE << item << "\n";
-        }
+        std::cout << "  " << (itemCount + 1) << ". " << Color::BRIGHT_WHITE << item << "\n";
 
         itemCount++;
         pos = endPos + 3;
         if (pos >= serviceType.length()) break;
     }
 
-    size_t totalPos = serviceType.find("{Total Service Fee: $");
+    size_t totalPos = serviceType.find("{Total Service Fee: RM");
     if (totalPos != std::string::npos) {
         size_t endTotal = serviceType.find("}", totalPos);
         if (endTotal != std::string::npos) {
@@ -966,7 +1039,7 @@ static void manageAppointmentFromList(std::vector<Appointment*>& foundAppointmen
 
     if (choice == 1 || choice == 2) {
         int appointmentIndex;
-        std::cout << Color::BRIGHT_YELLOW << "Enter the number (#) of the appointment to "
+        std::cout << Color::BRIGHT_YELLOW << "Enter the number of the appointment to "
             << (choice == 1 ? "reschedule" : "cancel")
             << " (1-" << foundAppointments.size() << "): " << Color::RESET;
 
@@ -999,47 +1072,163 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
         return;
     }
 
-    std::string newDate, newTime;
-    std::string today = getTodayDate();
     std::cout << Color::BRIGHT_CYAN << "\nCurrent Schedule: " << Color::BRIGHT_WHITE << app->date << " @ " << app->time << "\n" << Color::RESET;
 
-    while (true) {
-        std::cout << Color::BRIGHT_YELLOW << "Enter New Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
-        std::cin >> newDate;
-        if (!isValidDate(newDate)) {
-            std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n" << Color::RESET;
-        }
-        else if (newDate < today) {
-            std::cout << Color::BRIGHT_RED << "ERROR: Rescheduled date cannot be in the past! Current date is: " << today << "\n" << Color::RESET;
-        }
-        else {
-            break;
+    std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+    std::cout << Color::BRIGHT_CYAN << "1. " << Color::BRIGHT_WHITE << "Change Date Only\n";
+    std::cout << Color::BRIGHT_CYAN << "2. " << Color::BRIGHT_WHITE << "Change Time Slot Only\n";
+    std::cout << Color::BRIGHT_CYAN << "3. " << Color::BRIGHT_WHITE << "Change Both Date and Time Slot\n";
+    std::cout << Color::BRIGHT_RED << "0. " << Color::BRIGHT_WHITE << "Cancel Rescheduling\n";
+    std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+    std::cout << Color::BRIGHT_YELLOW << "Select Option: " << Color::RESET;
+
+    int choice;
+    if (!(std::cin >> choice)) {
+        std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
+        std::cin.clear();
+        std::cin.ignore(1000, '\n');
+        return;
+    }
+
+    if (choice == 0) return;
+
+    std::string newDate = app->date;
+    std::string newTime = app->time;
+    std::string today = getTodayDate();
+
+    // Change Date (Option 1 or 3)
+    if (choice == 1 || choice == 3) {
+        while (true) {
+            std::cout << Color::BRIGHT_YELLOW << "\nEnter New Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
+            std::cin >> newDate;
+            if (!isValidDate(newDate)) {
+                std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format or calendar day! Use YYYY-MM-DD.\n" << Color::RESET;
+            }
+            else if (newDate < today) {
+                std::cout << Color::BRIGHT_RED << "ERROR: Rescheduled date cannot be in the past! Current date is: " << today << "\n" << Color::RESET;
+            }
+            else {
+                break;
+            }
         }
     }
 
-    while (true) {
-        std::cout << Color::BRIGHT_YELLOW << "Enter New Time (HH:MM in 24-hr format): " << Color::RESET;
-        std::cin >> newTime;
-        if (!isValidTime(newTime)) {
-            std::cout << Color::BRIGHT_RED << "ERROR: Invalid time format! Use HH:MM (00:00 to 23:59).\n" << Color::RESET;
-        }
-        else {
-            break;
+    // Change Time Slot (Option 2 or 3) - 09:00 to 22:00, hiding full slots
+    if (choice == 2 || choice == 3) {
+        const std::vector<std::string> allSlots = {
+            "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
+            "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"
+        };
+        const int MAX_CARS_PER_SLOT = 3;
+
+        while (true) {
+            std::vector<std::string> availableSlots;
+            std::vector<int> spotsRemainingList;
+
+            for (const auto& slot : allSlots) {
+                int bookedCount = 0;
+                for (const auto& a : allAppointments) {
+                    if (&a != app && a.isActive && a.date == newDate && a.time == slot) {
+                        bookedCount++;
+                    }
+                }
+
+                int spotsLeft = MAX_CARS_PER_SLOT - bookedCount;
+                if (spotsLeft > 0) {
+                    availableSlots.push_back(slot);
+                    spotsRemainingList.push_back(spotsLeft);
+                }
+            }
+
+            if (availableSlots.empty()) {
+                std::cout << Color::BRIGHT_RED << "\nERROR: All time slots are fully booked for this date! Please choose another date.\n" << Color::RESET;
+                while (true) {
+                    std::cout << Color::BRIGHT_YELLOW << "\nEnter New Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
+                    std::cin >> newDate;
+                    if (!isValidDate(newDate)) {
+                        std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format!\n" << Color::RESET;
+                    }
+                    else if (newDate < today) {
+                        std::cout << Color::BRIGHT_RED << "ERROR: Date cannot be in the past!\n" << Color::RESET;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            std::cout << Color::CYAN << "\n----------------------------------------\n" << Color::RESET;
+            std::cout << Color::BRIGHT_YELLOW << Color::BOLD << "SELECT NEW TIME SLOT:\n" << Color::RESET;
+            std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+
+            for (size_t i = 0; i < availableSlots.size(); ++i) {
+                std::cout << Color::BRIGHT_CYAN << (i + 1) << ". " << Color::BRIGHT_WHITE << availableSlots[i]
+                    << Color::LIGHT_GRAY << " (" << spotsRemainingList[i] << " spot(s) remaining)\n" << Color::RESET;
+            }
+            std::cout << Color::CYAN << "----------------------------------------\n" << Color::RESET;
+            std::cout << Color::BRIGHT_YELLOW << "Choice (1-" << availableSlots.size() << ") [Enter 0 to change date]: " << Color::RESET;
+
+            int slotChoice;
+            if (!(std::cin >> slotChoice)) {
+                std::cout << Color::BRIGHT_RED << "Invalid input!\n" << Color::RESET;
+                std::cin.clear();
+                std::cin.ignore(1000, '\n');
+                continue;
+            }
+
+            if (slotChoice == 0) {
+                while (true) {
+                    std::cout << Color::BRIGHT_YELLOW << "\nEnter New Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
+                    std::cin >> newDate;
+                    if (!isValidDate(newDate)) {
+                        std::cout << Color::BRIGHT_RED << "ERROR: Invalid date format!\n" << Color::RESET;
+                    }
+                    else if (newDate < today) {
+                        std::cout << Color::BRIGHT_RED << "ERROR: Date cannot be in the past!\n" << Color::RESET;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            if (slotChoice >= 1 && slotChoice <= static_cast<int>(availableSlots.size())) {
+                std::string selectedTime = availableSlots[slotChoice - 1];
+
+                int targetSlotCount = 0;
+                for (const auto& a : allAppointments) {
+                    if (&a != app && a.isActive && a.date == newDate && a.time == selectedTime) {
+                        targetSlotCount++;
+                    }
+                }
+
+                if (targetSlotCount >= MAX_CARS_PER_SLOT) {
+                    std::cout << Color::BRIGHT_RED << "ERROR: This slot is fully booked! Refreshing list...\n" << Color::RESET;
+                }
+                else {
+                    newTime = selectedTime;
+                    break;
+                }
+            }
+            else {
+                std::cout << Color::BRIGHT_RED << "Invalid option! Try again.\n" << Color::RESET;
+            }
         }
     }
 
-    for (const auto& a : allAppointments) {
-        if (&a != app && a.isActive && a.date == newDate && a.time == newTime) {
-            std::cout << Color::BRIGHT_RED << "ERROR: Destination slot is already occupied!\n" << Color::RESET;
-            return;
-        }
+    if (choice < 1 || choice > 3) {
+        std::cout << Color::BRIGHT_RED << "Invalid selection! Rescheduling cancelled.\n" << Color::RESET;
+        return;
     }
 
     std::string oldDate = app->date;
     std::string oldTime = app->time;
     app->date = newDate;
     app->time = newTime;
-    std::cout << Color::BRIGHT_CYAN << "Appointment " << app->appointmentId
+
+    std::cout << Color::BRIGHT_CYAN << "\nAppointment " << app->appointmentId
         << " rescheduled from " << oldDate << " @ " << oldTime
         << " to " << newDate << " @ " << newTime << " successfully!\n" << Color::RESET;
 
@@ -1151,20 +1340,24 @@ void rescheduleAppointment(std::vector<Appointment>& appointments) {
         displayAppointmentRow(*a);
     }
 
-    std::string appId;
-    std::cout << Color::BRIGHT_YELLOW << "\nEnter Appointment ID to reschedule (or 0 to Return to Main Menu): " << Color::RESET;
-    std::cin >> appId;
-    if (appId == "0") return;
+    int choice = -1;
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter choice (1-" << activeApps.size() << ") to reschedule (or 0 to Return to Main Menu): " << Color::RESET;
 
-    appId = toUpper(appId);
-
-    for (auto& a : appointments) {
-        if (a.appointmentId == appId && a.isActive) {
-            rescheduleSpecificAppointment(&a, appointments);
-            return;
-        }
+    if (!(std::cin >> choice)) {
+        std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
+        std::cin.clear();
+        std::cin.ignore(1000, '\n');
+        return;
     }
-    std::cout << Color::BRIGHT_RED << "Active appointment ID not found.\n" << Color::RESET;
+
+    if (choice == 0) return;
+
+    if (choice < 1 || choice > static_cast<int>(activeApps.size())) {
+        std::cout << Color::BRIGHT_RED << "Invalid selection! Choice out of range.\n" << Color::RESET;
+        return;
+    }
+
+    rescheduleSpecificAppointment(activeApps[choice - 1], appointments);
 }
 
 void cancelAppointment(std::vector<Appointment>& appointments, std::vector<Customer>& customers) {
@@ -1193,19 +1386,36 @@ void cancelAppointment(std::vector<Appointment>& appointments, std::vector<Custo
         displayAppointmentRow(*a);
     }
 
-    std::string appId;
-    std::cout << Color::BRIGHT_YELLOW << "\nEnter Appointment ID to cancel (or 0 to Return to Main Menu): " << Color::RESET;
-    std::cin >> appId;
-    if (appId == "0") return;
+    int choice = -1;
+    std::cout << Color::BRIGHT_YELLOW << "\nEnter choice (1-" << activeApps.size() << ") to cancel (or 0 to Return to Main Menu): " << Color::RESET;
 
-    appId = toUpper(appId);
-
-    for (auto& a : appointments) {
-        if (a.appointmentId == appId) {
-            cancelSpecificAppointment(&a, customers);
-            saveAppointmentsToFile(appointments);
-            return;
-        }
+    if (!(std::cin >> choice)) {
+        std::cout << Color::BRIGHT_RED << "Invalid input! Please enter a number.\n" << Color::RESET;
+        std::cin.clear();
+        std::cin.ignore(1000, '\n');
+        return;
     }
-    std::cout << Color::BRIGHT_RED << "Appointment ID not found.\n" << Color::RESET;
+
+    if (choice == 0) return;
+
+    if (choice < 1 || choice > static_cast<int>(activeApps.size())) {
+        std::cout << Color::BRIGHT_RED << "Invalid selection! Choice out of range.\n" << Color::RESET;
+        return;
+    }
+
+    Appointment* selectedApp = activeApps[choice - 1];
+
+    char confirm;
+    std::cout << Color::BRIGHT_YELLOW
+        << "\nAre you sure you want to cancel Appointment ID " << selectedApp->appointmentId << "? (Y/N): "
+        << Color::RESET;
+    std::cin >> confirm;
+
+    if (std::toupper(confirm) == 'Y') {
+        cancelSpecificAppointment(selectedApp, customers);
+        saveAppointmentsToFile(appointments);
+    }
+    else {
+        std::cout << Color::BRIGHT_YELLOW << "Cancellation aborted.\n" << Color::RESET;
+    }
 }

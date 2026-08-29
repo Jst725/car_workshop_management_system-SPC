@@ -2,6 +2,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <limits>
 #include "structures.h"
 #include "file_storage.h"
 #include "customer.h"
@@ -83,7 +84,8 @@ int main() {
         if (!(std::cin >> choice)) {
             std::cout << Color::BRIGHT_RED << "Invalid input! Input numbers only.\n" << Color::RESET;
             std::cin.clear();
-            std::cin.ignore(1000, '\n');
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            choice = -1;
             continue;
         }
 
@@ -107,17 +109,24 @@ int main() {
             char confirm;
             std::cout << Color::BRIGHT_YELLOW << "Are you sure you want to exit? (Y/N): " << Color::RESET;
             std::cin >> confirm;
+
+            // Clear leftover newline/input stream
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
             if (confirm == 'Y' || confirm == 'y') {
                 saveAllData(customers, appointments, invoices);
                 std::cout << Color::BRIGHT_CYAN << Color::BOLD << "Exiting system. Goodbye!\n" << Color::RESET;
             }
             else {
+                std::cout << Color::BRIGHT_RED << "Exit cancelled. Returning to main menu.\n" << Color::RESET;
                 choice = -1;
             }
             break;
         }
         default:
             std::cout << Color::BRIGHT_RED << "Invalid choice! Select from 0 to 5.\n" << Color::RESET;
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            break;
         }
     } while (choice != 0);
 

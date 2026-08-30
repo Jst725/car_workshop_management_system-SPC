@@ -317,6 +317,9 @@ void addVehicleToCustomer(vector<Customer>& customers) {
 
     if (!target) {
         cout << Color::BRIGHT_RED << "[ERROR] Customer not found! Please register the customer first.\n" << Color::RESET;
+        cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cin.get();
         return;
     }
 

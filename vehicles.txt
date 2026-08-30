@@ -5,5 +5,4 @@
 1234567890|ABC123|PERODUA|MYVI|2026-08-24|In Service Queue||130|0|(1) Basic Engine Oil & Filter Change [RM130.00] {Total Service Fee: RM130.00}||130|
 1234567890|GHI789|HONDA|CIVIC|N/A|Awaiting Parts|Unassigned|0|0|||0|
 01234567890|JKL111|HONDA|CIVIC|N/A|Awaiting Parts|Unassigned|0|0|||0|
-0123456789|JTH3638|PERODUA|ARUZ|N/A|In Progress|TAN |650|0|(1) Major Service & Timing Belt Package [RM650.00] {Total Service Fee: RM650.00}||650|
-01110568028|JTH9952|HONDA |CIVIC|2026-08-30|Completed|Leo|0|0|(1) Major Service & Timing Belt Package [RM650.00] {Total Service Fee: RM650.00}| (2) Bald / Worn Tyres|0|
+0123456789|JTH3638|PERODUA|ARUZ|N/A|In Service Queue|Unassigned|650|0|(1) Major Service & Timing Belt Package [RM650.00] {Total Service Fee: RM650.00}||650|

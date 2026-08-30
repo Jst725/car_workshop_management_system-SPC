@@ -3,4 +3,3 @@
 01234567890|hihihi|Silver|0
 0123456789|Tan Ah Kow|Regular|0
 0987654321|John Doe|Regular|0
-01110568028|Hew|Silver|1168.12

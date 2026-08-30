@@ -445,13 +445,10 @@ void viewVehicleHistory(const vector<Customer>& customers, const vector<Invoice>
     const Customer* owner = nullptr;
     string selectedPlate = "";
 
-    // Search owner and locate vehicle license plate
+    // 1. Search owner or direct license plate match
     for (const auto& c : customers) {
         if (toUpper(c.phone) == key) {
             owner = &c;
-            if (!c.vehicles.empty()) {
-                selectedPlate = c.vehicles[0].licensePlate;
-            }
             break;
         }
         for (const auto& v : c.vehicles) {
@@ -464,7 +461,7 @@ void viewVehicleHistory(const vector<Customer>& customers, const vector<Invoice>
         if (owner) break;
     }
 
-    if (!owner || selectedPlate.empty()) {
+    if (!owner) {
         cout << Color::BRIGHT_RED << "[ERROR] No matching vehicle or customer found for: [" << query << "]\n" << Color::RESET;
         cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
@@ -472,7 +469,41 @@ void viewVehicleHistory(const vector<Customer>& customers, const vector<Invoice>
         return;
     }
 
-    // Collect all invoice records linked to this license plate
+    // 2. If phone number was entered, check vehicle count and handle selection
+    if (selectedPlate.empty()) {
+        if (owner->vehicles.empty()) {
+            cout << Color::BRIGHT_RED << "[ERROR] Customer has no registered vehicles.\n" << Color::RESET;
+            cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cin.get();
+            return;
+        }
+        else if (owner->vehicles.size() == 1) {
+            selectedPlate = owner->vehicles[0].licensePlate;
+        }
+        else {
+            // Let the user select which vehicle to check
+            cout << Color::CYAN << "\nCustomer has multiple vehicles registered:\n" << Color::RESET;
+            for (size_t i = 0; i < owner->vehicles.size(); ++i) {
+                cout << Color::BRIGHT_CYAN << "  " << (i + 1) << ". " << Color::BRIGHT_WHITE
+                    << owner->vehicles[i].licensePlate << " (" << owner->vehicles[i].brand << " " << owner->vehicles[i].model << ")\n";
+            }
+            cout << Color::BRIGHT_YELLOW << "Select vehicle number (1-" << owner->vehicles.size() << "): " << Color::RESET;
+            int vChoice;
+            if (cin >> vChoice && vChoice >= 1 && vChoice <= static_cast<int>(owner->vehicles.size())) {
+                selectedPlate = owner->vehicles[vChoice - 1].licensePlate;
+            }
+            else {
+                cout << Color::BRIGHT_RED << "[ERROR] Invalid selection.\n" << Color::RESET;
+                cout << Color::BRIGHT_YELLOW << "\nPress Enter to return to the menu..." << Color::RESET;
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cin.get();
+                return;
+            }
+        }
+    }
+
+    // 3. Collect all invoice records linked to the selected license plate
     vector<const Invoice*> historyRecords;
     for (const auto& inv : invoices) {
         if (toUpper(inv.licensePlate) == toUpper(selectedPlate)) {

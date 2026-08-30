@@ -2,4 +2,4 @@
 1234567890|ming|Regular|148.4
 01234567890|hihihi|Silver|0
 0123456789|Tan Ah Kow|Regular|0
-0987654321|John Doe|Regular|0
+0987654321|John Smith|Regular|0

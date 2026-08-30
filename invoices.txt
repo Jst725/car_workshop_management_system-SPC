@@ -15,6 +15,21 @@ ITEM|Transmission & Gearbox Fluid Service|Service|1|220|220
 ITEM|Brake System Service & Flush|Service|1|140|140
 ITEM|tayar|Part|3|88|264
 ITEM|Labor Charge|Labor|1|100|100
-INV|B004|01123456789|HAH339|2026-08-29|650|100|75|40.5|715.5|0|Unpaid
+INV|B004|01123456789|HAH339|2026-08-29|650|100|75|40.5|715.5|1|Card
 ITEM|Major Service & Timing Belt Package|Service|1|650|650
+ITEM|Labor Charge|Labor|1|100|100
+INV|B005|01110568028|JTH9952|2026-08-30|200|0|20|10.8|190.8|1|Cash
+ITEM|Engine Stalling / Rough Idle|Service|1|0|0
+ITEM|Bald / Worn Tyres|Service|1|0|0
+ITEM|Engine|Part|1|200|200
+INV|B006|01110568028|JTH9952|2026-08-30|250|22|0|16.32|288.32|1|Cash
+ITEM|Standard Comprehensive Service|Service|1|250|250
+ITEM|Labor Charge|Labor|1|22|22
+INV|B007|01110568028|JTH9952|2026-08-30|650|0|0|39|689|1|Card
+ITEM|(2) Bald / Worn Tyres|Service|1|650|650
+INV|B008|01123456789|BBC223|2026-08-30|380|100|48|25.92|457.92|0|Unpaid
+ITEM|Basic Engine Oil & Filter Change|Service|1|130|130
+ITEM|Standard Comprehensive Service|Service|1|250|250
+ITEM|Engine Cannot Start|Service|1|0|0
+ITEM|Brake Pedal Soft / Spongy|Service|1|0|0
 ITEM|Labor Charge|Labor|1|100|100

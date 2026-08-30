@@ -1,5 +1,6 @@
-01123456789|ming|Gold|3573.25
+01123456789|ming|Gold|4288.75
 1234567890|ming|Regular|148.4
 01234567890|hihihi|Silver|0
 0123456789|Tan Ah Kow|Regular|0
 0987654321|John Doe|Regular|0
+01110568028|Hew|Silver|1168.12

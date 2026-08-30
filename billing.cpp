@@ -146,6 +146,15 @@ static void printInvoiceDetails(const Invoice& inv, const std::string& customerN
     std::cout << Color::CYAN << "========================================================================================\n" << Color::RESET;
 }
 
+// Validate card transaction reference (must be exactly 12 digits)
+static bool validateCardTransaction(const std::string& ref) {
+    if (ref.length() != 12) return false;
+    for (char c : ref) {
+        if (!std::isdigit(static_cast<unsigned char>(c))) return false;
+    }
+    return true;
+}
+
 // Display strictly unpaid invoices, with an option to select and view detailed invoice slip
 void displayInvoices(const std::vector<Invoice>& invoices, const std::vector<Customer>& customers) {
     std::vector<const Invoice*> unpaidInvoices;
@@ -877,6 +886,7 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
 
     double amountPaid = 0.0;
     double changeGiven = 0.0;
+    std::string transactionRef;
 
     if (payChoice == 1) {
         selectedInvoice->paymentType = "Cash";
@@ -897,7 +907,40 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     }
     else if (payChoice == 2) {
         selectedInvoice->paymentType = "Card";
-        amountPaid = selectedInvoice->totalAmount;
+        std::cout << Color::BRIGHT_YELLOW << "\n--- CREDIT CARD PAYMENT VERIFICATION ---\n" << Color::RESET;
+        std::cout << Color::BRIGHT_CYAN << "Please enter 12-digit transaction reference: " << Color::RESET;
+
+        bool validRef = false;
+        int attempts = 0;
+        const int MAX_ATTEMPTS = 3;
+
+        while (!validRef && attempts < MAX_ATTEMPTS) {
+            std::cin >> transactionRef;
+            if (validateCardTransaction(transactionRef)) {
+                validRef = true;
+                std::cout << Color::BRIGHT_CYAN << "[APPROVED] Card transaction verified successfully.\n" << Color::RESET;
+                std::cout << Color::BRIGHT_CYAN << "Transaction Log: Reference " << transactionRef << " processed.\n" << Color::RESET;
+                amountPaid = selectedInvoice->totalAmount;
+            }
+            else {
+                attempts++;
+                if (attempts < MAX_ATTEMPTS) {
+                    std::cout << Color::BRIGHT_RED << "[ERROR] Transaction reference must be 12 digits. Attempt "
+                        << attempts << " of " << MAX_ATTEMPTS << ".\n" << Color::RESET;
+                    std::cout << Color::BRIGHT_YELLOW << "Enter 12-digit transaction reference: " << Color::RESET;
+                }
+                else {
+                    std::cout << Color::BRIGHT_RED << "[ERROR] Card verification failed after " << MAX_ATTEMPTS
+                        << " attempts. Payment cancelled.\n" << Color::RESET;
+                    return;
+                }
+                clearCinError();
+            }
+        }
+
+        if (!validRef) {
+            return;
+        }
     }
     else {
         selectedInvoice->paymentType = "E-Wallet";
@@ -936,6 +979,12 @@ void processPayment(std::vector<Invoice>& invoices, std::vector<Customer>& custo
     std::cout << Color::BRIGHT_CYAN << " Plate          : " << Color::BRIGHT_WHITE << selectedInvoice->licensePlate << "\n";
     std::cout << Color::BRIGHT_CYAN << " Payment Date   : " << Color::BRIGHT_WHITE << payDate << "\n";
     std::cout << Color::BRIGHT_CYAN << " Method         : " << Color::BRIGHT_WHITE << selectedInvoice->paymentType << "\n";
+
+    // Display transaction reference for card payments
+    if (selectedInvoice->paymentType == "Card" && !transactionRef.empty()) {
+        std::cout << Color::BRIGHT_CYAN << " Transaction Ref: " << Color::BRIGHT_WHITE << transactionRef << "\n";
+    }
+
     std::cout << Color::CYAN << "----------------------------------------------------------------------------------------\n" << Color::RESET;
     std::cout << Color::BRIGHT_YELLOW << Color::BOLD << std::left << std::setw(12) << " Type"
         << std::setw(34) << " Description"

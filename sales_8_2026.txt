@@ -1,0 +1,39 @@
+=========================================================
+        CAR WORKSHOP - MONTHLY REPORT EXPORT            
+=========================================================
+
+Report Month: 8/2026
+Generated On: 2026-08-30
+
+-- FINANCIAL SUMMARY --
+Total Bills        : 8
+Paid Bills         : 7
+Total Sales        : RM4252.71
+Payment Received   : RM3794.79
+Outstanding Amount : RM457.92
+Total SST Collected: RM240.72
+
+-- PAYMENT BREAKDOWN --
+Method         Count          Amount (RM)
+Cash           4              1784.09
+Card           3              2010.70
+E-Wallet       0              0.00
+
+-- CUSTOMER STATISTICS --
+Tier           Total Customers   Total Cars     Total Spending (RM)
+Regular        3                 3              148.40
+Silver         2                 2              1168.12
+Gold           1                 4              4288.75
+VIP            0                 0              0.00
+
+-- ITEMIZED INVOICE LIST --
+Bill ID     Customer                 Plate       Amount (RM)   Status
+B001        ming                     BJE427      614.27        PAID
+B002        ming                     HAH339      606.20        PAID
+B003        ming                     HAH339      690.70        PAID
+B004        ming                     HAH339      715.50        PAID
+B005        Hew                      JTH9952     190.80        PAID
+B006        Hew                      JTH9952     288.32        PAID
+B007        Hew                      JTH9952     689.00        PAID
+B008        ming                     BBC223      457.92        UNPAID
+=========================================================

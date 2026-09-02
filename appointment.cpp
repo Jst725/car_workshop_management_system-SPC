@@ -166,6 +166,22 @@ static std::string getTodayDate() {
     return ss.str();
 }
 
+static std::string getCurrentTimeHHMM() {
+    time_t now = time(nullptr);
+    tm local;
+
+#ifdef _WIN32
+    localtime_s(&local, &now);
+#else
+    local = *localtime(&now);
+#endif
+
+    std::stringstream ss;
+    ss << std::setw(2) << std::setfill('0') << local.tm_hour << ":"
+        << std::setw(2) << std::setfill('0') << local.tm_min;
+    return ss.str();
+}
+
 static void displayAppointmentRow(const Appointment& a) {
     std::cout << Color::BRIGHT_WHITE << std::left << std::setw(10) << a.appointmentId
         << std::setw(12) << a.customerId
@@ -389,7 +405,7 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         }
     }
 
-    // 2. SELECT TIME SLOT FROM MENU (09:00 to 22:00, hiding full slots)
+    // 2. SELECT TIME SLOT FROM MENU (09:00 to 22:00, hiding full or past slots)
     const std::vector<std::string> allSlots = {
         "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
         "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"
@@ -399,8 +415,14 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
     while (true) {
         std::vector<std::string> availableSlots;
         std::vector<int> spotsRemainingList;
+        std::string currentTime = getCurrentTimeHHMM();
 
         for (const auto& slot : allSlots) {
+            // Filter out past time slots if the selected date is today
+            if (app.date == today && slot <= currentTime) {
+                continue;
+            }
+
             int bookedCount = 0;
             for (const auto& a : appointments) {
                 if (a.isActive && a.date == app.date && a.time == slot) {
@@ -416,7 +438,13 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
         }
 
         if (availableSlots.empty()) {
-            std::cout << Color::BRIGHT_RED << "\nERROR: All time slots are fully booked for this date! Please choose another date.\n" << Color::RESET;
+            if (app.date == today) {
+                std::cout << Color::BRIGHT_RED << "\nERROR: No remaining available slots for today! Please choose another date.\n" << Color::RESET;
+            }
+            else {
+                std::cout << Color::BRIGHT_RED << "\nERROR: All time slots are fully booked for this date! Please choose another date.\n" << Color::RESET;
+            }
+
             while (true) {
                 std::cout << Color::BRIGHT_YELLOW << "\nEnter New Service Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
                 std::cin >> app.date;
@@ -471,6 +499,12 @@ void bookAppointment(std::vector<Appointment>& appointments, std::vector<Custome
 
         if (slotChoice >= 1 && slotChoice <= static_cast<int>(availableSlots.size())) {
             std::string selectedTime = availableSlots[slotChoice - 1];
+
+            // Safety validation for past time check
+            if (app.date == today && selectedTime <= currentTime) {
+                std::cout << Color::BRIGHT_RED << "ERROR: That time slot has already passed! Please pick an upcoming time.\n" << Color::RESET;
+                continue;
+            }
 
             int currentSlotCount = 0;
             for (const auto& a : appointments) {
@@ -1113,7 +1147,7 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
         }
     }
 
-    // Change Time Slot (Option 2 or 3) - 09:00 to 22:00, hiding full slots
+    // Change Time Slot (Option 2 or 3) - 09:00 to 22:00, hiding full or past slots
     if (choice == 2 || choice == 3) {
         const std::vector<std::string> allSlots = {
             "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
@@ -1124,8 +1158,14 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
         while (true) {
             std::vector<std::string> availableSlots;
             std::vector<int> spotsRemainingList;
+            std::string currentTime = getCurrentTimeHHMM();
 
             for (const auto& slot : allSlots) {
+                // Skip past slots for today
+                if (newDate == today && slot <= currentTime) {
+                    continue;
+                }
+
                 int bookedCount = 0;
                 for (const auto& a : allAppointments) {
                     if (&a != app && a.isActive && a.date == newDate && a.time == slot) {
@@ -1141,7 +1181,13 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
             }
 
             if (availableSlots.empty()) {
-                std::cout << Color::BRIGHT_RED << "\nERROR: All time slots are fully booked for this date! Please choose another date.\n" << Color::RESET;
+                if (newDate == today) {
+                    std::cout << Color::BRIGHT_RED << "\nERROR: No remaining time slots for today! Please choose another date.\n" << Color::RESET;
+                }
+                else {
+                    std::cout << Color::BRIGHT_RED << "\nERROR: All time slots are fully booked for this date! Please choose another date.\n" << Color::RESET;
+                }
+
                 while (true) {
                     std::cout << Color::BRIGHT_YELLOW << "\nEnter New Date (YYYY-MM-DD, Today or Future): " << Color::RESET;
                     std::cin >> newDate;
@@ -1196,6 +1242,11 @@ static void rescheduleSpecificAppointment(Appointment* app, std::vector<Appointm
 
             if (slotChoice >= 1 && slotChoice <= static_cast<int>(availableSlots.size())) {
                 std::string selectedTime = availableSlots[slotChoice - 1];
+
+                if (newDate == today && selectedTime <= currentTime) {
+                    std::cout << Color::BRIGHT_RED << "ERROR: That time slot has already passed! Pick another slot.\n" << Color::RESET;
+                    continue;
+                }
 
                 int targetSlotCount = 0;
                 for (const auto& a : allAppointments) {

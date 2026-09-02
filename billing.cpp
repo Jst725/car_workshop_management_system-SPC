@@ -13,7 +13,7 @@
 #include <regex>
 #include <cstdlib>
 
-// ANSI Light Color Definitions (No Blue, Green, or Purple)
+// ANSI Light Color Definitions 
 namespace Color {
     const std::string RESET = "\033[0m";
     const std::string BOLD = "\033[1m";
